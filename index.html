@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0a1612">
+  <title>PL/SQL Oracle — тренажёр</title>
+  <style>
+    *,*::before,*::after{box-sizing:border-box}
+    html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+    body{
+      margin:0;min-height:100vh;min-height:100dvh;
+      font-family:"Segoe UI",system-ui,-apple-system,Roboto,sans-serif;
+      background:
+        radial-gradient(ellipse 80% 60% at 20% 0%, rgba(22,101,52,.35) 0%, transparent 55%),
+        radial-gradient(ellipse 70% 50% at 90% 100%, rgba(21,128,61,.2) 0%, transparent 50%),
+        #0a1612;
+      color:#e2e8f0;
+      display:flex;flex-direction:column;
+      padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+    }
+    .app{flex:1;display:flex;flex-direction:column;max-width:1200px;width:100%;margin:0 auto;min-height:0;gap:10px}
+    .header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .brand{display:flex;align-items:center;gap:10px}
+    .brand-icon{
+      width:36px;height:36px;border-radius:10px;
+      background:linear-gradient(135deg,#14532d 0%,#166534 100%);
+      border:1px solid rgba(74,222,128,.25);
+      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;
+    }
+    .brand h1{margin:0;font-size:1.05rem;font-weight:600;color:#f8fafc}
+    .brand span{font-size:.78rem;color:#94a3b8;display:block;margin-top:1px}
+    .progress-pill{
+      font-size:.78rem;padding:6px 12px;border-radius:999px;
+      background:rgba(15,40,30,.55);border:1px solid rgba(74,222,128,.18);color:#cbd5e1;
+    }
+    .progress-pill b{color:#4ade80}
+    .task-card{
+      background:rgba(15,40,30,.45);border:1px solid rgba(74,222,128,.15);
+      border-radius:14px;padding:14px 16px;max-height:220px;overflow:auto;
+    }
+    .task-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;font-weight:600}
+    .task-text{margin:0;font-size:.92rem;line-height:1.55;color:#e2e8f0}
+    .workspace{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0}
+    @media(max-width:860px){.workspace{grid-template-columns:1fr}}
+    .panel{
+      display:flex;flex-direction:column;min-height:0;
+      background:rgba(15,40,30,.4);border:1px solid rgba(74,222,128,.12);
+      border-radius:14px;overflow:hidden;
+    }
+    .panel-head{
+      padding:8px 12px;background:rgba(10,22,18,.6);border-bottom:1px solid rgba(74,222,128,.1);
+      font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;
+    }
+    .editor-wrap{flex:1;display:flex;min-height:260px}
+    .line-nums{
+      padding:12px 0 12px 10px;font-family:Consolas,monospace;font-size:13px;line-height:1.55;
+      color:#475569;text-align:right;min-width:36px;background:rgba(8,18,14,.7);
+      border-right:1px solid rgba(74,222,128,.08);overflow:hidden;white-space:pre;
+    }
+    .sql-input{
+      flex:1;resize:none;border:none;outline:none;padding:12px 14px;
+      font-family:Consolas,monospace;font-size:13px;line-height:1.55;
+      background:rgba(8,18,14,.7);color:#e2e8f0;tab-size:2;min-height:260px;
+    }
+    .toolbar{display:flex;gap:8px;padding:8px 12px;border-top:1px solid rgba(74,222,128,.1);flex-wrap:wrap;align-items:center}
+    .btn-run{
+      padding:8px 18px;border:none;border-radius:8px;cursor:pointer;font-family:inherit;
+      font-size:.88rem;font-weight:600;background:linear-gradient(135deg,#14532d,#166534);color:#fff;
+    }
+    .btn-secondary{
+      padding:7px 14px;border:1px solid rgba(74,222,128,.2);border-radius:8px;
+      background:rgba(15,40,30,.4);color:#94a3b8;font-family:inherit;font-size:.82rem;cursor:pointer;
+    }
+    .hint-kbd{font-size:.75rem;color:#64748b;margin-left:auto}
+    .output-body,.side-body{flex:1;overflow:auto;padding:12px 14px;font-size:.88rem;line-height:1.5;min-height:120px}
+    .score-bar{
+      height:8px;background:rgba(8,18,14,.7);border-radius:4px;overflow:hidden;margin:8px 0 12px;
+    }
+    .score-fill{height:100%;background:linear-gradient(90deg,#14532d,#4ade80);transition:width .4s}
+    .score-num{font-size:1.4rem;font-weight:700;color:#4ade80}
+    .crit{margin:0 0 6px;padding:6px 8px;border-radius:6px;font-size:.82rem;display:flex;gap:8px;align-items:flex-start}
+    .crit-ok{background:rgba(5,46,22,.5);color:#bbf7d0}
+    .crit-fail{background:rgba(69,10,10,.35);color:#fecaca}
+    .crit-icon{flex-shrink:0;font-weight:700}
+    .ora{
+      margin:8px 0;padding:10px;border-radius:8px;background:rgba(69,10,10,.25);
+      border-left:3px solid #ef4444;font-size:.82rem;
+    }
+    .ora-code{font-family:Consolas,monospace;color:#fca5a5;font-weight:600}
+    .ora-info{border-left-color:#4ade80;background:rgba(20,83,45,.35)}
+    .hist-item{font-size:.78rem;padding:4px 0;border-bottom:1px solid rgba(74,222,128,.08);color:#94a3b8}
+    .hist-item b{color:#e2e8f0}
+    .modal-overlay{
+      position:fixed;inset:0;background:rgba(10,22,18,.75);z-index:200;
+      display:none;align-items:center;justify-content:center;padding:16px;
+    }
+    .modal-overlay.visible{display:flex}
+    .modal{
+      background:rgba(15,40,30,.95);border:1px solid rgba(74,222,128,.2);
+      border-radius:16px;max-width:520px;width:100%;padding:24px;max-height:85vh;overflow:auto;
+    }
+    .modal h2{margin:0 0 12px;font-size:1.2rem}
+    .modal ul{margin:8px 0;padding-left:18px;line-height:1.55}
+    .modal button{margin-top:16px;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;
+      background:#166534;color:#fff;font-weight:600;
+    }
+    .bottom-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    @media(max-width:860px){.bottom-row{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <div class="app">
+    <header class="header">
+      <div class="brand">
+        <div class="brand-icon">PL/SQL</div>
+        <div>
+          <h1>Тренажёр Oracle PL/SQL</h1>
+          <span>Решайте в PL/SQL Developer → вставляйте код сюда</span>
+        </div>
+      </div>
+      <div class="progress-pill">Задание <b id="taskNum">1</b> из <b id="taskTotal">1</b></div>
+    </header>
+
+    <section class="task-card">
+      <div class="task-label" id="taskLabel">Задание</div>
+      <div class="task-text" id="taskText"></div>
+    </section>
+
+    <div class="workspace">
+      <div class="panel">
+        <div class="panel-head">Ваш код из PL/SQL Developer</div>
+        <div class="editor-wrap">
+          <div class="line-nums" id="lineNums">1</div>
+          <textarea class="sql-input" id="sqlInput" spellcheck="false" placeholder="Вставьте сюда скрипт после выполнения в PL/SQL Developer…"></textarea>
+        </div>
+        <div class="toolbar">
+          <button type="button" class="btn-run" id="btnCheck">✓ Проверить</button>
+          <button type="button" class="btn-secondary" id="btnClear">Очистить</button>
+          <button type="button" class="btn-secondary" id="btnReport">Мой отчёт</button>
+          <span class="hint-kbd">Ctrl + Enter</span>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-head">Результат проверки</div>
+        <div class="output-body" id="outputBody">
+          <p style="color:#64748b;font-style:italic">Вставьте код и нажмите «Проверить».</p>
+        </div>
+      </div>
+
+      <div class="bottom-row">
+        <div class="panel">
+          <div class="panel-head">История попыток</div>
+          <div class="side-body" id="historyBody"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-head">Подсказка</div>
+          <div class="side-body" id="hintBody" style="color:#94a3b8;font-size:.85rem">
+            Тренажёр анализирует структуру запроса, допускает разные формулировки (to_date, FETCH FIRST, ROWNUM). 
+            Ошибки Oracle эмулируются для типичных промахов. История сохраняется в браузере.
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalReport">
+    <div class="modal">
+      <h2>Ваш профиль обучения</h2>
+      <div id="reportContent"></div>
+      <button type="button" id="btnCloseReport">Закрыть</button>
+    </div>
+  </div>
+
+  <script src="js/util.js"></script>
+  <script src="js/oracle-errors.js"></script>
+  <script src="js/checker.js"></script>
+  <script src="js/history.js"></script>
+  <script src="js/tasks.js"></script>
+  <script>
+  (function(){
+    var sqlInput = document.getElementById('sqlInput');
+    var lineNums = document.getElementById('lineNums');
+    var outputBody = document.getElementById('outputBody');
+    var historyBody = document.getElementById('historyBody');
+    var taskText = document.getElementById('taskText');
+    var taskLabel = document.getElementById('taskLabel');
+    var taskNum = document.getElementById('taskNum');
+    var taskTotal = document.getElementById('taskTotal');
+    var taskStep = 0;
+
+    taskTotal.textContent = String(TASKS.length);
+
+    function esc(s){
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function updateLineNums(){
+      var n = sqlInput.value.split('\n').length || 1;
+      lineNums.textContent = Array.from({length:n},function(_,i){return i+1;}).join('\n');
+    }
+
+    function renderTask(){
+      var t = TASKS[taskStep];
+      taskLabel.textContent = t.title;
+      taskText.innerHTML = t.html;
+      taskNum.textContent = String(taskStep + 1);
+    }
+
+    function renderHistory(){
+      var data = History.load();
+      if (!data.attempts.length){
+        historyBody.innerHTML = '<p style="color:#64748b;font-style:italic;margin:0">Попыток пока нет.</p>';
+        return;
+      }
+      historyBody.innerHTML = data.attempts.slice().reverse().slice(0,12).map(function(a){
+        var d = new Date(a.ts);
+        return '<div class="hist-item"><b>' + esc(a.score) + '%</b> · ' + esc(a.taskId) +
+          ' · ' + d.toLocaleString('ru-RU') + (a.pass ? ' ✓' : '') + '</div>';
+      }).join('');
+    }
+
+    function renderResult(result){
+      var html = '<div class="score-num">' + result.score + '%</div>';
+      html += '<div class="score-bar"><div class="score-fill" style="width:' + result.score + '%"></div></div>';
+      html += result.pass ? '<p style="color:#4ade80;margin:0 0 10px">✓ Задание зачтено</p>' :
+        '<p style="color:#fbbf24;margin:0 0 10px">Ещё не все критерии выполнены</p>';
+
+      result.criteria.forEach(function(c){
+        html += '<div class="crit ' + (c.pass ? 'crit-ok' : 'crit-fail') + '">' +
+          '<span class="crit-icon">' + (c.pass ? '✓' : '✗') + '</span>' +
+          '<span><b>' + esc(c.label) + '</b>' +
+          (c.detail ? '<br><small>' + esc(c.detail) + '</small>' : '') +
+          (!c.pass && c.hint ? '<br><small style="opacity:.85">' + esc(c.hint) + '</small>' : '') +
+          '</span></div>';
+      });
+
+      if (result.oracleErrors.length){
+        html += '<p style="margin:14px 0 6px;font-weight:600;color:#fca5a5">Эмуляция Oracle</p>';
+        result.oracleErrors.forEach(function(e){
+          html += '<div class="ora' + (e.code === 'INFO' ? ' ora-info' : '') + '">' +
+            '<div class="ora-code">' + esc(e.code) + ': ' + esc(e.title) + '</div>' +
+            '<div style="margin-top:4px">' + esc(e.explain) + '</div>' +
+            (e.detail ? '<div style="margin-top:4px;opacity:.9">' + esc(e.detail) + '</div>' : '') +
+            '</div>';
+        });
+      }
+
+      if (result.weaknesses.length){
+        html += '<p style="margin-top:12px;font-size:.85rem;color:#94a3b8"><b>Слабые места:</b> ' +
+          esc(result.weaknesses.slice(0,3).join('; ')) + '</p>';
+      }
+
+      outputBody.innerHTML = html;
+    }
+
+    function checkCode(){
+      var task = TASKS[taskStep];
+      var code = sqlInput.value;
+      if (!code.trim()){
+        outputBody.innerHTML = '<p style="color:#fecaca">Вставьте SQL-код для проверки.</p>';
+        return;
+      }
+      var result = Checker.run(code, task);
+      History.addAttempt(task.id, result, code);
+      renderResult(result);
+      renderHistory();
+      if (result.pass && taskStep < TASKS.length - 1){
+        taskStep++;
+        renderTask();
+      }
+    }
+
+    function showReport(){
+      var r = History.report(TASKS);
+      var html = '<p>Всего попыток: <b>' + r.attempts + '</b></p>';
+      if (r.strengths.length){
+        html += '<p><b style="color:#4ade80">Сильные стороны</b></p><ul>';
+        r.strengths.forEach(function(s){ html += '<li>' + esc(s) + '</li>'; });
+        html += '</ul>';
+      }
+      if (r.weaknesses.length){
+        html += '<p><b style="color:#fca5a5">Зоны роста</b></p><ul>';
+        r.weaknesses.forEach(function(w){ html += '<li>' + esc(w) + '</li>'; });
+        html += '</ul>';
+      }
+      if (!r.strengths.length && !r.weaknesses.length){
+        html += '<p style="color:#94a3b8">Сначала выполните хотя бы одну проверку.</p>';
+      }
+      document.getElementById('reportContent').innerHTML = html;
+      document.getElementById('modalReport').classList.add('visible');
+    }
+
+    sqlInput.addEventListener('input', updateLineNums);
+    sqlInput.addEventListener('scroll', function(){ lineNums.scrollTop = sqlInput.scrollTop; });
+    sqlInput.addEventListener('keydown', function(e){
+      if (e.key === 'Tab'){ e.preventDefault(); var s = sqlInput.selectionStart;
+        sqlInput.value = sqlInput.value.slice(0,s) + '  ' + sqlInput.value.slice(sqlInput.selectionEnd);
+        sqlInput.selectionStart = sqlInput.selectionEnd = s + 2; updateLineNums(); }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter'){ e.preventDefault(); checkCode(); }
+    });
+
+    document.getElementById('btnCheck').onclick = checkCode;
+    document.getElementById('btnClear').onclick = function(){ sqlInput.value = ''; updateLineNums(); };
+    document.getElementById('btnReport').onclick = showReport;
+    document.getElementById('btnCloseReport').onclick = function(){
+      document.getElementById('modalReport').classList.remove('visible');
+    };
+
+    renderTask();
+    renderHistory();
+    updateLineNums();
+  })();
+  </script>
+</body>
+</html>
