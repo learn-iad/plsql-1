@@ -98,7 +98,6 @@ var SqlUtil = (function () {
     [/\bDRO\s+TABLE\b/i, 'DRO → DROP'],
     [/\bDELTE\s+FROM\b/i, 'DELTE → DELETE'],
     [/\bVARCHA2\b/i, 'VARCHA2 → VARCHAR2'],
-    [/\bVARCHAR\b(?!2)/i, 'VARCHAR → VARCHAR2 (для Oracle)'],
     [/\bNUBMER\b/i, 'NUBMER → NUMBER'],
     [/\bNUMBR\b/i, 'NUMBR → NUMBER']
   ];
@@ -127,10 +126,13 @@ var SqlUtil = (function () {
 
   function validateCode(sql) {
     var stmts = splitStatementsDetailed(sql);
+    var trimmed = sql.trim();
+    var endsComplete = /;\s*$/.test(trimmed) || /\/\s*$/.test(trimmed);
+    var toValidate = endsComplete ? stmts : stmts.slice(0, -1);
     var invalidLines = {};
     var problems = [];
 
-    stmts.forEach(function (s, idx) {
+    toValidate.forEach(function (s, idx) {
       var v = validateStatement(s.text);
       if (v.valid) return;
       var before = sql.slice(0, s.start);
@@ -149,6 +151,75 @@ var SqlUtil = (function () {
 
   function hasComments(sql) {
     return /\/\*[\s\S]*?\*\//.test(sql) || /--[^\n]*/.test(sql);
+  }
+
+  function isCommentLine(line) {
+    var t = line.trim();
+    return !t || /^--/.test(t) || /^\/\*/.test(t) || /^\*\//.test(t) || /^\*/.test(t);
+  }
+
+  function blockHasSql(text) {
+    var norm = normalize(text);
+    return norm.length > 0 && SQL_START.test(norm);
+  }
+
+  function splitCodeBlocks(code) {
+    var blocks = [];
+    var cur = [];
+    code.split('\n').forEach(function (line) {
+      if (line.trim() === '' && cur.length) {
+        blocks.push(cur.join('\n'));
+        cur = [];
+      } else {
+        cur.push(line);
+      }
+    });
+    if (cur.length) blocks.push(cur.join('\n'));
+    return blocks.filter(function (b) { return b.trim(); });
+  }
+
+  function blockIsCommentOnly(block) {
+    return block.split('\n').every(isCommentLine);
+  }
+
+  function blockHasOwnComment(block) {
+    if (/\/\*[\s\S]*?\*\//.test(block)) return true;
+    var first = block.split('\n').filter(function (l) { return l.trim(); })[0];
+    return first && /^--/.test(first.trim());
+  }
+
+  function blockHasAdjacentComment(blocks, idx) {
+    if (blockHasOwnComment(blocks[idx])) return true;
+    if (idx > 0 && blockIsCommentOnly(blocks[idx - 1])) return true;
+    if (idx < blocks.length - 1 && blockIsCommentOnly(blocks[idx + 1])) return true;
+    return false;
+  }
+
+  /** Комментарий до или после каждого непрерывного блока команд (разделитель — пустая строка). */
+  function hasBlockComments(code) {
+    var blocks = splitCodeBlocks(code);
+    var sqlIdx = [];
+    blocks.forEach(function (b, i) {
+      if (blockHasSql(b)) sqlIdx.push(i);
+    });
+    if (!sqlIdx.length) return false;
+    return sqlIdx.every(function (i) { return blockHasAdjacentComment(blocks, i); });
+  }
+
+  function getAdjacentCommentText(code, start, end, radius) {
+    radius = radius || 500;
+    var chunk = code.slice(Math.max(0, start - radius), end + radius);
+    return (chunk.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
+  }
+
+  function adjacentCommentMatch(code, stmtPred, commentRe) {
+    var stmts = splitStatementsDetailed(code);
+    for (var i = 0; i < stmts.length; i++) {
+      if (!stmtPred(stmts[i].text)) continue;
+      var txt = getAdjacentCommentText(code, stmts[i].start, stmts[i].end);
+      if (commentRe.test(txt)) return true;
+    }
+    return false;
   }
 
   function detectSchema(sql) {
@@ -172,7 +243,7 @@ var SqlUtil = (function () {
     return n;
   }
 
-  var SQL_KW = 'CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|FROM|WHERE|SET|TABLE|AS|INTO|ADD|MODIFY|DEFAULT|COMMIT|NUMBER|VARCHAR2|DATE|ORDER|BY|FETCH|FIRST|ROWS|ONLY|JOIN|ON|AND|OR|NOT|NULL|IS|IN|VALUES|NEXTVAL|TO_DATE|TRUNCATE|GRANT|REVOKE|BEGIN|DECLARE|EXEC|EXECUTE|PRIMARY|KEY|CONSTRAINT|INDEX|VIEW|SEQUENCE|UNION|ALL|DISTINCT|GROUP|HAVING|LIKE|BETWEEN|CASE|WHEN|THEN|ELSE|END';
+  var SQL_KW = 'CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|FROM|WHERE|SET|TABLE|AS|INTO|ADD|MODIFY|DEFAULT|COMMIT|NUMBER|VARCHAR2|VARCHAR|DATE|ORDER|BY|FETCH|FIRST|ROWS|ONLY|JOIN|ON|AND|OR|NOT|NULL|IS|IN|VALUES|NEXTVAL|TO_DATE|TRUNCATE|GRANT|REVOKE|BEGIN|DECLARE|EXEC|EXECUTE|PRIMARY|KEY|CONSTRAINT|INDEX|VIEW|SEQUENCE|UNION|ALL|DISTINCT|GROUP|HAVING|LIKE|BETWEEN|CASE|WHEN|THEN|ELSE|END|CAST|PURGE|MERGE|ROW_NUMBER|DENSE_RANK|RANK|SAMPLE|SYSDATE|ROLLBACK';
 
   function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -248,6 +319,8 @@ var SqlUtil = (function () {
     validateCode: validateCode,
     posToLine: posToLine,
     hasComments: hasComments,
+    hasBlockComments: hasBlockComments,
+    adjacentCommentMatch: adjacentCommentMatch,
     detectSchema: detectSchema,
     stmtMatch: stmtMatch,
     allStmts: allStmts,
