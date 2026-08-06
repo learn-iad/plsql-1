@@ -19,11 +19,12 @@ var TASKS = [
     rubric: [
       {
         id: 'comments',
-        label: 'Есть комментарии в коде',
+        label: 'Комментарии у блоков команд',
         weight: 8,
-        hint: 'Добавьте -- или /* */ с пояснением развилок и решений.',
+        hint: 'Пустая строка отделяет блоки — у каждого блока комментарий до или после.',
         check: function (code) {
-          return { pass: SqlUtil.hasComments(code), detail: SqlUtil.hasComments(code) ? 'Комментарии найдены' : 'Комментарии не найдены' };
+          var ok = SqlUtil.hasBlockComments(code);
+          return { pass: ok, detail: ok ? 'Комментарии у блоков найдены' : 'Добавьте комментарий до или после каждого блока команд' };
         }
       },
       {
@@ -185,8 +186,9 @@ var TASKS = [
         hint: 'Поясните порядок сортировки и отбора 50 строк.',
         check: function (code) {
           if (!/\bSELECT\b[\s\S]*\bcontract_date\b/i.test(code)) return { pass: false, detail: 'Нет SELECT с contract_date' };
-          var comments = (code.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
-          var ok = /50|сорт|sort|fetch|rownum|строк|выборк|order|contract/.test(comments);
+          var ok = SqlUtil.adjacentCommentMatch(code, function (s) {
+            return /\bSELECT\b/i.test(s) && /\bcontract_date\b/i.test(s);
+          }, /50|сорт|sort|fetch|rownum|строк|выборк|order|contract/);
           return { pass: ok, detail: ok ? 'Пояснение найдено' : 'Добавьте комментарий к SELECT' };
         }
       }
@@ -219,11 +221,12 @@ var TASKS = [
     rubric: [
       {
         id: 'comments',
-        label: 'Есть комментарии в коде',
+        label: 'Комментарии у блоков команд',
         weight: 8,
-        hint: 'Добавьте -- или /* */ с пояснением развилок и решений.',
+        hint: 'Пустая строка отделяет блоки — у каждого блока комментарий до или после.',
         check: function (code) {
-          return { pass: SqlUtil.hasComments(code), detail: SqlUtil.hasComments(code) ? 'Комментарии найдены' : 'Комментарии не найдены' };
+          var ok = SqlUtil.hasBlockComments(code);
+          return { pass: ok, detail: ok ? 'Комментарии у блоков найдены' : 'Добавьте комментарий до или после каждого блока команд' };
         }
       },
       {
@@ -287,8 +290,9 @@ var TASKS = [
         weight: 6,
         hint: 'Поясните, что DELETE можно отменить через ROLLBACK до COMMIT.',
         check: function (code) {
-          var comments = (code.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
-          var ok = /rollback|откат|commit|восстанов|вернуть/.test(comments);
+          var ok = SqlUtil.adjacentCommentMatch(code, function (s) {
+            return /\bDELETE\s+FROM\b/i.test(s);
+          }, /rollback|откат|commit|восстанов|вернуть/);
           return { pass: ok, detail: ok ? 'Пояснение найдено' : 'Добавьте комментарий про ROLLBACK' };
         }
       },
@@ -303,7 +307,9 @@ var TASKS = [
           var allCols = cols.every(function (c) { return new RegExp('\\b' + c + '\\b', 'i').test(norm); });
           var order = /\border\s+by\b[\s\S]*\badmdate\b/i.test(norm) && /\bdesc\b/i.test(norm);
           var pct = /\bfetch\s+first\s+10\s+percent\s+rows\s+only\b/i.test(norm) ||
-            /\bsample\s*\(\s*10\s*\)/i.test(norm);
+            /\bsample\s*\(\s*10\s*\)/i.test(norm) ||
+            /\brownum\s*<=?\s*ceil\s*\(\s*[\w.]+\s*\*\s*0\.1\s*\)/i.test(norm) ||
+            (/\b10\s*%\b/.test(code) && /\bSELECT\b/i.test(norm));
           return { pass: allCols && order && pct, detail: [allCols, order, pct].join('/') };
         }
       },
@@ -312,8 +318,9 @@ var TASKS = [
         label: 'Комментарий к трактовке 10% / SAMPLE',
         weight: 4,
         check: function (code) {
-          var comments = (code.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
-          var ok = /10\s*%|sample|fetch|percent|процент|случайн|перв/.test(comments);
+          var ok = SqlUtil.adjacentCommentMatch(code, function (s) {
+            return /\bSELECT\b/i.test(s) && (/\badmdate\b/i.test(s) || /\b10\s*percent\b/i.test(s) || /\bsample\b/i.test(s));
+          }, /10\s*%|sample|fetch|percent|процент|случайн|перв/);
           return { pass: ok, detail: ok ? 'Пояснение найдено' : 'Добавьте комментарий к SELECT 10%' };
         }
       },
@@ -328,7 +335,7 @@ var TASKS = [
           var sel = selM && new RegExp('\\b' + selM[1] + '\\.').test(norm);
           var ctasM = norm.match(/\bFROM\s+edu\.partners\s+(\w+)\b/i);
           var ctas = ctasM && new RegExp('\\b' + ctasM[1] + '\\.').test(norm);
-          return { pass: sel && ctas, detail: 'SELECT alias: ' + sel + ', CTAS alias: ' + ctas };
+          return { pass: sel || ctas, detail: 'SELECT alias: ' + sel + ', CTAS alias: ' + ctas };
         }
       }
     ],
@@ -357,10 +364,10 @@ var TASKS = [
     rubric: [
       {
         id: 'comments',
-        label: 'Есть комментарии в коде',
+        label: 'Комментарии у блоков команд',
         weight: 8,
         check: function (code) {
-          return { pass: SqlUtil.hasComments(code) };
+          return { pass: SqlUtil.hasBlockComments(code) };
         }
       },
       {
@@ -382,8 +389,7 @@ var TASKS = [
           var norm = SqlUtil.normalize(code);
           var ok = /\bCREATE\s+TABLE\s+[\w.]*partnersCopy\s+AS\b/i.test(norm) &&
             /\bedu\.claim_claims\b/i.test(code) &&
-            /\blBlocked\b/i.test(norm) &&
-            /\bcast\s*\(\s*null\s+as\s+varchar2/i.test(norm);
+            /\blBlocked\b/i.test(norm);
           return { pass: ok };
         }
       },
@@ -395,7 +401,7 @@ var TASKS = [
         check: function (code) {
           var norm = SqlUtil.normalize(code);
           var ok = /\bALTER\s+TABLE\s+[\w.]*partnersCopy\s+MODIFY\b/i.test(norm) &&
-            /\bvarchar2\s*\(\s*\d+\s*\)/i.test(norm);
+            /\b(varchar2|varchar)\s*\(\s*\d+\s*\)/i.test(norm);
           return { pass: ok };
         }
       },
@@ -442,8 +448,9 @@ var TASKS = [
         weight: 6,
         hint: 'Обоснуйте, нужен ли DISTINCT, исходя из ключей таблицы.',
         check: function (code) {
-          var comments = (code.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
-          var ok = /distinct|ключ|key|primary|unique|i3\.products|products/.test(comments);
+          var ok = SqlUtil.adjacentCommentMatch(code, function (s) {
+            return /\bINSERT\b/i.test(s) && /\bi3\.products\b/i.test(s);
+          }, /distinct|ключ|key|primary|unique|i3\.products|products/);
           return { pass: ok, detail: ok ? 'Обоснование найдено' : 'Добавьте комментарий про DISTINCT' };
         }
       },
@@ -492,10 +499,10 @@ var TASKS = [
     rubric: [
       {
         id: 'comments',
-        label: 'Есть комментарии в коде',
+        label: 'Комментарии у блоков команд',
         weight: 8,
         check: function (code) {
-          return { pass: SqlUtil.hasComments(code) };
+          return { pass: SqlUtil.hasBlockComments(code) };
         }
       },
       {
@@ -568,8 +575,9 @@ var TASKS = [
         label: 'Комментарий к способу удаления половины / 10%',
         weight: 6,
         check: function (code) {
-          var comments = (code.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
-          var ok = /50|10|половин|десят|rownum|percent|%/i.test(comments);
+          var ok = SqlUtil.adjacentCommentMatch(code, function (s) {
+            return /\bDELETE\s+FROM\b/i.test(s);
+          }, /50|10|половин|десят|rownum|percent|%/i);
           return { pass: ok, detail: ok ? 'Пояснение найдено' : 'Добавьте комментарий к DELETE' };
         }
       }
@@ -599,10 +607,10 @@ var TASKS = [
     rubric: [
       {
         id: 'comments',
-        label: 'Есть комментарии в коде',
+        label: 'Комментарии у блоков команд',
         weight: 8,
         check: function (code) {
-          return { pass: SqlUtil.hasComments(code) };
+          return { pass: SqlUtil.hasBlockComments(code) };
         }
       },
       {
@@ -689,8 +697,9 @@ var TASKS = [
         label: 'Комментарий к перенумерации partner',
         weight: 4,
         check: function (code) {
-          var comments = (code.match(/(--[^\n]*|\/\*[\s\S]*?\*\/)/g) || []).join(' ').toLowerCase();
-          var ok = /25|дыр|пропуск|gap|row_number|dense_rank|нумерац|перенумер/.test(comments);
+          var ok = SqlUtil.adjacentCommentMatch(code, function (s) {
+            return /\bUPDATE\b/i.test(s) && /\bpartner\b/i.test(s);
+          }, /25|дыр|пропуск|gap|row_number|dense_rank|нумерац|перенумер/);
           return { pass: ok, detail: ok ? 'Пояснение найдено' : 'Добавьте комментарий к UPDATE partner' };
         }
       },
@@ -703,7 +712,7 @@ var TASKS = [
           var upd = /\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(norm);
           var selM = norm.match(/\bFROM\s+[\w.]+\s+(\w+)\b/i);
           var sel = selM && new RegExp('\\b' + selM[1] + '\\.').test(norm);
-          return { pass: upd && sel, detail: 'UPDATE alias: ' + upd + ', SELECT alias: ' + sel };
+          return { pass: upd || sel, detail: 'UPDATE alias: ' + upd + ', SELECT alias: ' + sel };
         }
       }
     ],
