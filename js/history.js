@@ -7,19 +7,45 @@ var History = (function () {
   var CRITERION_CATEGORIES = {
     comments: 'comment',
     select_fork_comment: 'comment',
+    rollback_comment: 'comment',
+    distinct_comment: 'comment',
+    delete_fork_comment: 'comment',
+    gaps_comment: 'comment',
     schema_create_agent: 'schema',
     schema_second_update: 'schema',
+    schema_create: 'schema',
+    schema_update: 'schema',
     aliases: 'alias',
     drop_not_delete: 'wrong_command',
+    drop_purge: 'wrong_command',
+    truncate: 'wrong_command',
     create_agent: 'structure',
     alter_birth: 'structure',
     ctas_agents: 'structure',
     defaults: 'structure',
+    ctas_partners: 'structure',
+    alter_agent: 'structure',
+    create_partnersCopy: 'structure',
+    modify_text: 'structure',
+    create_insuranceTypes: 'structure',
+    ctas_partners_full: 'structure',
+    add_emergency_col: 'structure',
     insert_agent: 'data',
     supervisor_alter: 'data',
+    insert_partner: 'data',
+    insert_all_5: 'data',
+    insert_products: 'data',
+    insert_all_agents: 'data',
+    update_phone_mail: 'data',
+    delete_all: 'data',
     supervisor_update_all: 'query_logic',
     supervisor_update_cond: 'query_logic',
-    final_select: 'query_logic'
+    final_select: 'query_logic',
+    select_10pct: 'query_logic',
+    update_agency: 'query_logic',
+    create_and_deletes: 'query_logic',
+    delete_agents_match: 'query_logic',
+    update_partner_gaps: 'query_logic'
   };
 
   var CATEGORY_LABELS = {
@@ -82,14 +108,98 @@ var History = (function () {
       rarity: 'legendary',
       title: 'Логик с FETCH',
       desc: 'UPDATE/SELECT с условиями, сортировкой и TOP — запросы делают то, что задумано.'
+    },
+    analyst_path: {
+      id: 'analyst_path',
+      emoji: '🧭',
+      rarity: 'common',
+      title: 'Путь аналитика',
+      desc: 'Ты приступил к практическому тренажёру.'
+    },
+    streak_2: {
+      id: 'streak_2',
+      emoji: '⚡',
+      rarity: 'rare',
+      title: '×2 к мощности',
+      desc: 'Сдал 2 задания подряд — серия началась!'
+    },
+    streak_3: {
+      id: 'streak_3',
+      emoji: '🧠',
+      rarity: 'rare',
+      title: '×3 к интеллекту',
+      desc: 'Три задания подряд — мыслишь всё увереннее.'
+    },
+    streak_4: {
+      id: 'streak_4',
+      emoji: '🔥',
+      rarity: 'legendary',
+      title: '×4 к точности',
+      desc: 'Четыре задания подряд — почти безупречная серия.'
+    },
+    streak_5: {
+      id: 'streak_5',
+      emoji: '🚀',
+      rarity: 'legendary',
+      title: '×5 к мастерству',
+      desc: 'Все задания подряд — полный зачёт по курсу!'
     }
   };
 
+  var STREAK_ACH_IDS = ['streak_2', 'streak_3', 'streak_4', 'streak_5'];
+
+  function ensureMeta(data) {
+    if (!data.meta) data.meta = {};
+    return data;
+  }
+
+  function markTrainerStarted() {
+    var data = load();
+    ensureMeta(data);
+    if (data.meta.started) return false;
+    var grantAnalyst = data.attempts.length === 0;
+    data.meta.started = true;
+    data.meta.startedAt = Date.now();
+    if (grantAnalyst) data.meta.analystPath = true;
+    save(data);
+    return grantAnalyst;
+  }
+
+  function computeTaskStreak(tasks) {
+    var data = load();
+    var passed = {};
+    data.attempts.forEach(function (a) {
+      if (a.pass) passed[a.taskId] = true;
+    });
+    var streak = 0;
+    for (var i = 0; i < tasks.length; i++) {
+      if (passed[tasks[i].id]) streak++;
+      else break;
+    }
+    return streak;
+  }
+
+  function getSpecialAchievementIds(tasks) {
+    var data = load();
+    ensureMeta(data);
+    var ids = [];
+    if (data.meta.analystPath) ids.push('analyst_path');
+    var streak = computeTaskStreak(tasks);
+    STREAK_ACH_IDS.forEach(function (id, i) {
+      if (streak >= i + 2) ids.push(id);
+    });
+    return ids;
+  }
+
+  function getAchievement(id) {
+    return ACHIEVEMENTS[id] || null;
+  }
+
   function load() {
     try {
-      return JSON.parse(localStorage.getItem(KEY) || '{"attempts":[]}');
+      return JSON.parse(localStorage.getItem(KEY) || '{"attempts":[],"meta":{}}');
     } catch (e) {
-      return { attempts: [] };
+      return { attempts: [], meta: {} };
     }
   }
 
@@ -190,6 +300,10 @@ var History = (function () {
 
     var achievements = [];
     var growthAreas = [];
+
+    getSpecialAchievementIds(tasks).forEach(function (id) {
+      if (ACHIEVEMENTS[id]) achievements.push(ACHIEVEMENTS[id]);
+    });
 
     Object.keys(byCategory).forEach(function (cat) {
       var s = byCategory[cat];
@@ -301,6 +415,9 @@ var History = (function () {
     buildExportPayload: buildExportPayload,
     hasAnyPass: hasAnyPass,
     clear: clear,
+    markTrainerStarted: markTrainerStarted,
+    computeTaskStreak: computeTaskStreak,
+    getAchievement: getAchievement,
     CATEGORY_LABELS: CATEGORY_LABELS,
     ACHIEVEMENTS: ACHIEVEMENTS
   };
