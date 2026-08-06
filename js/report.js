@@ -60,6 +60,12 @@ var Report = (function () {
     telemetry.finishedAt = nowMs();
   }
 
+  function truncateCode(code, maxLen) {
+    maxLen = maxLen || 12000;
+    if (!code || code.length <= maxLen) return code;
+    return code.slice(0, maxLen) + '\n\n[truncated, total ' + code.length + ' chars]';
+  }
+
   function buildReportPayload(tasks, reason) {
     var exportData = History.buildExportPayload({
       sessionId: telemetry.sessionId,
@@ -107,7 +113,7 @@ var Report = (function () {
           score: a.score,
           pass: a.pass,
           codeLen: a.codeLen,
-          code: a.code,
+          code: truncateCode(a.code),
           criteria: a.criteria,
           oracleErrors: a.oracleErrors,
           secFromStart: a.secFromStart
