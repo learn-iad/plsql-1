@@ -23,10 +23,16 @@
     .header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .brand{display:flex;align-items:center;gap:10px}
     .brand-icon{
-      width:36px;height:36px;border-radius:10px;
+      width:36px;height:36px;border-radius:10px;flex-shrink:0;
       background:linear-gradient(135deg,#14532d 0%,#166534 100%);
-      border:1px solid rgba(74,222,128,.25);
-      display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:#fff;
+      border:1px solid rgba(74,222,128,.35);
+      display:flex;align-items:center;justify-content:center;
+      font-size:9px;font-weight:800;color:#fff;letter-spacing:-.02em;
+      animation:brand-glow 2.4s ease-in-out infinite;
+    }
+    @keyframes brand-glow{
+      0%,100%{box-shadow:0 0 4px rgba(74,222,128,.2), inset 0 0 6px rgba(74,222,128,.08)}
+      50%{box-shadow:0 0 14px rgba(74,222,128,.55),0 0 24px rgba(34,197,94,.25), inset 0 0 10px rgba(74,222,128,.15)}
     }
     .brand h1{margin:0;font-size:1.05rem;font-weight:600;color:#f8fafc}
     .brand span{font-size:.78rem;color:#94a3b8;display:block;margin-top:1px}
@@ -35,6 +41,16 @@
       background:rgba(15,40,30,.55);border:1px solid rgba(74,222,128,.18);color:#cbd5e1;
     }
     .progress-pill b{color:#4ade80}
+    .header-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    .btn-next-task{
+      padding:6px 12px;border-radius:999px;font-size:.78rem;font-weight:600;
+      border:1px solid rgba(74,222,128,.2);background:rgba(15,40,30,.55);color:#64748b;
+      font-family:inherit;cursor:not-allowed;white-space:nowrap;
+    }
+    .btn-next-task.ready{
+      color:#4ade80;border-color:rgba(74,222,128,.45);cursor:pointer;
+    }
+    .btn-next-task.ready:hover{background:rgba(20,83,45,.45)}
     .task-card{
       background:rgba(15,40,30,.45);border:1px solid rgba(74,222,128,.15);
       border-radius:14px;padding:14px 16px;max-height:220px;overflow:auto;
@@ -52,16 +68,86 @@
       padding:8px 12px;background:rgba(10,22,18,.6);border-bottom:1px solid rgba(74,222,128,.1);
       font-size:.78rem;font-weight:600;text-transform:uppercase;letter-spacing:.05em;color:#94a3b8;
     }
-    .editor-wrap{flex:1;display:flex;min-height:260px}
+    .panel-head-tabs{display:flex;gap:4px;padding:6px 8px}
+    .tab-btn{
+      flex:1;padding:7px 10px;border:1px solid transparent;border-radius:8px;
+      background:transparent;color:#64748b;font-family:inherit;font-size:.76rem;font-weight:600;
+      text-transform:none;letter-spacing:0;cursor:pointer;
+    }
+    .tab-btn:hover{color:#94a3b8;background:rgba(15,40,30,.4)}
+    .tab-btn.active{
+      color:#e2e8f0;background:rgba(15,40,30,.65);border-color:rgba(74,222,128,.2);
+    }
+    .tab-progress{color:#4ade80;font-weight:700;margin-left:4px}
+    .checklist-header{
+      text-align:center;padding:6px 0 10px;margin-bottom:10px;
+      border-bottom:1px solid rgba(74,222,128,.1);font-size:.88rem;color:#cbd5e1;
+    }
+    .checklist-header b{color:#4ade80;font-size:1.1rem}
+    .checklist-hint{margin:12px 0 0;font-size:.78rem;color:#64748b;line-height:1.45}
+    .checklist-groups{margin:0;padding:0;list-style:none}
+    .checklist-groups li{
+      padding:13px 14px;margin-bottom:8px;border-radius:10px;font-size:.95rem;font-weight:500;
+      display:flex;gap:12px;align-items:center;background:rgba(8,18,14,.45);
+      border:1px solid rgba(74,222,128,.08);
+    }
+    .checklist-groups li.ok{border-color:rgba(74,222,128,.28);color:#d1fae5}
+    .checklist-groups li.fail{color:#94a3b8}
+    .checklist-groups .chk-icon{font-size:1.15rem;flex-shrink:0;width:1.5em;text-align:center}
+    .checklist-groups li.ok .chk-icon{color:#4ade80}
+    .tab-pane[hidden]{display:none}
+    .panel-head-editor{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .btn-icon{
+      padding:4px 8px;border:1px solid rgba(74,222,128,.2);border-radius:6px;
+      background:rgba(15,40,30,.5);color:#94a3b8;font-size:.95rem;line-height:1;cursor:pointer;
+      font-family:inherit;flex-shrink:0;
+    }
+    .btn-icon:hover{color:#e2e8f0;border-color:rgba(74,222,128,.35)}
+    .panel-editor,.panel-output{min-height:0;max-height:calc(100dvh - 308px)}
+    .panel-editor.fullscreen{
+      position:fixed;inset:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right))
+        max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
+      z-index:150;max-height:none;display:flex;flex-direction:column;
+      box-shadow:0 16px 48px rgba(0,0,0,.55);
+    }
+    .panel-editor.fullscreen .editor-wrap{max-height:none;flex:1;min-height:0}
+    .editor-wrap{
+      flex:1;display:flex;min-height:145px;max-height:min(508px,calc(100dvh - 340px));
+      position:relative;overflow:hidden;
+    }
+    .editor-stack{flex:1;display:flex;min-width:0;min-height:0;position:relative;overflow:hidden}
+    .code-backdrop{
+      position:absolute;inset:0;pointer-events:none;overflow:hidden;
+      padding:12px 14px;font-family:Consolas,monospace;font-size:13px;line-height:1.55;
+      white-space:pre-wrap;word-wrap:break-word;color:#cbd5e1;
+    }
+    .code-backdrop .ln-invalid{background:rgba(239,68,68,.18);border-radius:2px}
+    .hl-kw{color:#7dd3fc;font-weight:600}
+    .hl-str{color:#fbbf24}
+    .hl-cmt{color:#64748b;font-style:italic}
+    .hl-num{color:#f472b6}
+    .val-warn{
+      padding:4px 12px 6px;font-size:.75rem;color:#fca5a5;border-top:1px solid rgba(239,68,68,.15);
+      background:rgba(69,10,10,.15);min-height:22px;
+    }
+    .val-warn:empty{display:none}
     .line-nums{
       padding:12px 0 12px 10px;font-family:Consolas,monospace;font-size:13px;line-height:1.55;
       color:#475569;text-align:right;min-width:36px;background:rgba(8,18,14,.7);
       border-right:1px solid rgba(74,222,128,.08);overflow:hidden;white-space:pre;
+      align-self:stretch;overflow-y:hidden;
     }
     .sql-input{
       flex:1;resize:none;border:none;outline:none;padding:12px 14px;
       font-family:Consolas,monospace;font-size:13px;line-height:1.55;
-      background:rgba(8,18,14,.7);color:#e2e8f0;tab-size:2;min-height:260px;
+      background:transparent;color:transparent;caret-color:#e2e8f0;
+      -webkit-text-fill-color:transparent;tab-size:2;min-height:0;height:100%;
+      position:relative;z-index:1;overflow:auto;
+    }
+    .sql-input::placeholder{color:#64748b;-webkit-text-fill-color:#64748b;opacity:1}
+    .editor-stack::before{
+      content:'';position:absolute;inset:0;
+      background:rgba(8,18,14,.7);z-index:0;
     }
     .toolbar{display:flex;gap:8px;padding:8px 12px;border-top:1px solid rgba(74,222,128,.1);flex-wrap:wrap;align-items:center}
     .btn-run{
@@ -78,11 +164,25 @@
       height:8px;background:rgba(8,18,14,.7);border-radius:4px;overflow:hidden;margin:8px 0 12px;
     }
     .score-fill{height:100%;background:linear-gradient(90deg,#14532d,#4ade80);transition:width .4s}
-    .score-num{font-size:1.4rem;font-weight:700;color:#4ade80}
-    .crit{margin:0 0 6px;padding:6px 8px;border-radius:6px;font-size:.82rem;display:flex;gap:8px;align-items:flex-start}
+    .score-block{
+      text-align:center;padding:8px 0 14px;border-bottom:1px solid rgba(74,222,128,.1);margin-bottom:12px;
+    }
+    .score-num{font-size:2rem;font-weight:700;color:#4ade80;line-height:1.1}
+    .score-label{font-size:.78rem;color:#64748b;margin-top:4px}
+    .crit-compact{margin:0;padding:0;list-style:none}
+    .crit-compact li{
+      padding:5px 0;font-size:.84rem;display:flex;gap:8px;align-items:center;
+      border-bottom:1px solid rgba(74,222,128,.06);
+    }
+    .crit-compact .ok{color:#bbf7d0}
+    .crit-compact .fail{color:#fecaca}
+    .btn-details{
+      margin-top:10px;width:100%;
+    }
+    .btn-report[disabled]{opacity:.45;cursor:not-allowed}
+    .crit{margin:0;padding:6px 8px;border-radius:6px;font-size:.82rem}
     .crit-ok{background:rgba(5,46,22,.5);color:#bbf7d0}
     .crit-fail{background:rgba(69,10,10,.35);color:#fecaca}
-    .crit-icon{flex-shrink:0;font-weight:700}
     .ora{
       margin:8px 0;padding:10px;border-radius:8px;background:rgba(69,10,10,.25);
       border-left:3px solid #ef4444;font-size:.82rem;
@@ -91,6 +191,76 @@
     .ora-info{border-left-color:#4ade80;background:rgba(20,83,45,.35)}
     .hist-item{font-size:.78rem;padding:4px 0;border-bottom:1px solid rgba(74,222,128,.08);color:#94a3b8}
     .hist-item b{color:#e2e8f0}
+    .ach-grid{display:flex;flex-wrap:wrap;gap:12px;margin:8px 0 14px;overflow:visible;padding-bottom:4px}
+    .ach{
+      position:relative;width:72px;cursor:help;text-align:center;
+    }
+    .ach-icon{
+      width:56px;height:56px;margin:0 auto;border-radius:50%;
+      display:flex;align-items:center;justify-content:center;
+      font-size:1.65rem;line-height:1;
+      box-shadow:inset 0 0 12px rgba(255,255,255,.15);
+    }
+    .ach-common .ach-icon{
+      background:radial-gradient(circle at 35% 30%,#86efac,#14532d 70%);
+      border:2px solid #4ade80;
+      filter:drop-shadow(0 0 6px rgba(74,222,128,.35));
+      animation:ach-glow-common 2.4s ease-in-out infinite;
+    }
+    .ach-rare .ach-icon{
+      background:radial-gradient(circle at 35% 30%,#c4b5fd,#312e81 70%);
+      border:2px solid #a78bfa;
+      filter:drop-shadow(0 0 8px rgba(167,139,250,.5));
+      animation:ach-glow-rare 2.2s ease-in-out infinite;
+    }
+    .ach-legendary .ach-icon{
+      background:radial-gradient(circle at 35% 30%,#fde68a,#92400e 65%);
+      border:2px solid #fbbf24;
+      filter:drop-shadow(0 0 12px rgba(251,191,36,.65));
+      animation:ach-glow-legendary 1.8s ease-in-out infinite;
+    }
+    .ach-title{font-size:.68rem;color:#bbf7d0;margin-top:4px;line-height:1.2}
+    .ach-rare .ach-title{color:#ddd6fe}
+    .ach-legendary .ach-title{color:#fde68a}
+    .ach-tip{
+      display:none;position:absolute;left:50%;top:calc(100% + 6px);transform:translateX(-50%);
+      width:200px;padding:8px 10px;border-radius:8px;z-index:20;pointer-events:none;
+      background:#0f281e;border:1px solid rgba(74,222,128,.35);color:#e2e8f0;font-size:.72rem;
+      line-height:1.35;text-align:left;box-shadow:0 8px 20px rgba(0,0,0,.35);
+    }
+    .ach-grid .ach-tip{width:min(200px,calc(100vw - 48px))}
+    .ach-rare .ach-tip{border-color:rgba(167,139,250,.45)}
+    .ach-legendary .ach-tip{border-color:rgba(251,191,36,.5)}
+    .ach:hover .ach-tip,.ach:focus .ach-tip{display:block}
+    .modal-body .ach-tip{display:none!important}
+    .ach-float-tip{
+      position:fixed;z-index:400;width:200px;padding:8px 10px;border-radius:8px;
+      pointer-events:none;background:#0f281e;border:1px solid rgba(74,222,128,.35);
+      color:#e2e8f0;font-size:.72rem;line-height:1.35;text-align:left;
+      box-shadow:0 8px 20px rgba(0,0,0,.35);display:none;
+    }
+    .ach-float-tip.ach-float-rare{border-color:rgba(167,139,250,.45)}
+    .ach-float-tip.ach-float-legendary{border-color:rgba(251,191,36,.5)}
+    @keyframes ach-glow-common{
+      0%,100%{box-shadow:0 0 8px rgba(74,222,128,.4), inset 0 0 12px rgba(255,255,255,.2)}
+      50%{box-shadow:0 0 16px rgba(74,222,128,.7), inset 0 0 14px rgba(255,255,255,.3)}
+    }
+    @keyframes ach-glow-rare{
+      0%,100%{box-shadow:0 0 10px rgba(167,139,250,.45), inset 0 0 12px rgba(255,255,255,.22)}
+      50%{box-shadow:0 0 20px rgba(167,139,250,.75), inset 0 0 16px rgba(255,255,255,.32)}
+    }
+    @keyframes ach-glow-legendary{
+      0%,100%{box-shadow:0 0 14px rgba(251,191,36,.55),0 0 28px rgba(245,158,11,.25), inset 0 0 14px rgba(255,255,255,.28)}
+      50%{box-shadow:0 0 24px rgba(251,191,36,.85),0 0 40px rgba(245,158,11,.45), inset 0 0 18px rgba(255,255,255,.38)}
+    }
+    .details-crit{margin:0;padding:0;list-style:none}
+    .details-crit li{
+      padding:6px 0;font-size:.84rem;display:flex;gap:8px;align-items:flex-start;
+      border-bottom:1px solid rgba(74,222,128,.06);
+    }
+    .details-crit .ok{color:#bbf7d0}
+    .details-crit .fail{color:#fecaca}
+    .details-crit small{display:block;margin-top:3px;opacity:.85;font-size:.78rem}
     .modal-overlay{
       position:fixed;inset:0;background:rgba(10,22,18,.75);z-index:200;
       display:none;align-items:center;justify-content:center;padding:16px;
@@ -98,15 +268,99 @@
     .modal-overlay.visible{display:flex}
     .modal{
       background:rgba(15,40,30,.95);border:1px solid rgba(74,222,128,.2);
-      border-radius:16px;max-width:520px;width:100%;padding:24px;max-height:85vh;overflow:auto;
+      border-radius:16px;max-width:520px;width:100%;max-height:85vh;
+      display:flex;flex-direction:column;overflow:hidden;
     }
-    .modal h2{margin:0 0 12px;font-size:1.2rem}
-    .modal ul{margin:8px 0;padding-left:18px;line-height:1.55}
-    .modal button{margin-top:16px;padding:10px 20px;border:none;border-radius:8px;cursor:pointer;
-      background:#166534;color:#fff;font-weight:600;
+    .modal-header{
+      display:flex;align-items:flex-start;justify-content:space-between;gap:12px;
+      padding:20px 20px 0;flex-shrink:0;
     }
+    .modal-header h2{margin:0;font-size:1.2rem;flex:1}
+    .modal-close{
+      width:32px;height:32px;padding:0;border:none;border-radius:8px;cursor:pointer;
+      background:rgba(8,18,14,.6);color:#94a3b8;font-size:1.35rem;line-height:1;
+      display:flex;align-items:center;justify-content:center;flex-shrink:0;
+    }
+    .modal-close:hover{background:rgba(69,10,10,.4);color:#fecaca}
+    .modal-body{padding:12px 20px 20px;overflow:auto;flex:1;min-height:0}
+    .modal-body ul{margin:8px 0;padding-left:18px;line-height:1.55}
+    .modal-congrats{text-align:center;max-width:400px}
+    .modal-congrats .congrats-emoji{font-size:2.5rem;line-height:1;margin-bottom:8px}
+    .modal-congrats p{color:#94a3b8;font-size:.9rem;margin:0 0 16px;line-height:1.5}
+    .step-track{display:flex;align-items:center;justify-content:center;gap:0;margin:18px 0 22px;padding:0 8px}
+    .step-node{
+      width:36px;height:36px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:.82rem;font-weight:700;
+      background:rgba(8,18,14,.7);border:2px solid rgba(74,222,128,.2);color:#64748b;
+      transition:transform .35s ease,box-shadow .35s ease,border-color .35s ease,color .35s ease;
+    }
+    .step-node.done{
+      background:linear-gradient(135deg,#14532d,#166534);border-color:#4ade80;color:#fff;
+      box-shadow:0 0 12px rgba(74,222,128,.45);
+    }
+    .step-node.done.pop{animation:step-pop .5s ease}
+    .step-node.current{
+      border-color:#fbbf24;color:#fde68a;
+      box-shadow:0 0 14px rgba(251,191,36,.4);
+    }
+    @keyframes step-pop{
+      0%{transform:scale(.6);opacity:.5}
+      60%{transform:scale(1.15)}
+      100%{transform:scale(1);opacity:1}
+    }
+    .step-line{flex:1;height:3px;min-width:12px;max-width:48px;background:rgba(74,222,128,.15);border-radius:2px}
+    .step-line.done{background:linear-gradient(90deg,#166534,#4ade80)}
+    .step-stars{display:flex;justify-content:center;gap:10px;margin:16px 0 6px}
+    .step-star{font-size:1.75rem;line-height:1;filter:grayscale(1) opacity(.35);transition:filter .4s ease,transform .4s ease}
+    .step-star.lit{filter:none;animation:star-lit .55s ease}
+    @keyframes star-lit{
+      0%{transform:scale(.5) rotate(-20deg)}
+      70%{transform:scale(1.2) rotate(8deg)}
+      100%{transform:scale(1) rotate(0)}
+    }
+    .step-caption{font-size:.78rem;color:#64748b;margin-bottom:18px}
+    .btn-congrats{
+      width:100%;padding:10px 18px;border:none;border-radius:8px;cursor:pointer;
+      font-family:inherit;font-size:.92rem;font-weight:600;
+      background:linear-gradient(135deg,#14532d,#166534);color:#fff;
+    }
+    .btn-congrats:hover{filter:brightness(1.08)}
+    .congrats-actions{display:flex;flex-direction:column;gap:8px}
+    .btn-congrats-secondary{
+      width:100%;padding:9px 18px;border:1px solid rgba(74,222,128,.25);border-radius:8px;
+      background:transparent;color:#94a3b8;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer;
+    }
+    .btn-congrats-secondary:hover{color:#e2e8f0;border-color:rgba(74,222,128,.4)}
     .bottom-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
     @media(max-width:860px){.bottom-row{grid-template-columns:1fr}}
+    .onboarding-root{
+      position:fixed;inset:0;z-index:5000;display:none;flex-direction:column;
+      align-items:center;justify-content:center;padding:16px;
+    }
+    .onboarding-root.is-open{display:flex}
+    .onboarding-dim{position:absolute;inset:0;background:rgba(10,22,18,.82);backdrop-filter:blur(4px)}
+    .onboarding-box{
+      position:relative;z-index:2;width:100%;max-width:460px;
+      background:rgba(15,40,30,.98);border:1px solid rgba(74,222,128,.25);
+      border-radius:20px;padding:24px;box-shadow:0 20px 50px rgba(0,0,0,.45);text-align:center;
+    }
+    .onboarding-title{margin:0;font-size:1.15rem;font-weight:700;color:#f8fafc}
+    .onboarding-subtitle{margin:12px 0 0;font-size:14px;line-height:1.5;color:#94a3b8;text-align:left}
+    .onboarding-btn{
+      margin-top:18px;padding:12px 28px;font-size:15px;border:none;border-radius:999px;
+      background:linear-gradient(135deg,#14532d,#166534);color:#fff;cursor:pointer;
+      font-family:inherit;font-weight:700;width:100%;
+    }
+    .onboarding-btn:hover{filter:brightness(1.08)}
+    .onboarding-input{
+      width:100%;padding:10px 12px;font-size:14px;border:1px solid rgba(74,222,128,.2);
+      border-radius:12px;font-family:inherit;background:rgba(8,18,14,.7);color:#e2e8f0;
+    }
+    .onboarding-input:focus{outline:none;border-color:#4ade80;box-shadow:0 0 0 3px rgba(74,222,128,.2)}
+    .onboarding-input::placeholder{color:#64748b}
+    .report-actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
+    .report-send-status{font-size:.82rem;color:#64748b;margin:0;text-align:center;min-height:1.2em}
   </style>
 </head>
 <body>
@@ -119,7 +373,10 @@
           <span>Решайте в PL/SQL Developer → вставляйте код сюда</span>
         </div>
       </div>
-      <div class="progress-pill">Задание <b id="taskNum">1</b> из <b id="taskTotal">1</b></div>
+      <div class="header-nav">
+        <button type="button" class="btn-next-task" id="btnNextTask" disabled title="Доступно после зачёта текущего задания">Задание 2 →</button>
+        <div class="progress-pill">Задание <b id="taskNum">1</b> из <b id="taskTotal">1</b></div>
+      </div>
     </header>
 
     <section class="task-card">
@@ -128,23 +385,38 @@
     </section>
 
     <div class="workspace">
-      <div class="panel">
-        <div class="panel-head">Ваш код из PL/SQL Developer</div>
+      <div class="panel panel-editor" id="panelEditor">
+        <div class="panel-head panel-head-editor">
+          <span>Ваш код из PL/SQL Developer</span>
+          <button type="button" class="btn-icon" id="btnEditorFullscreen" title="Полноэкранный режим" aria-label="Полноэкранный режим">⛶</button>
+        </div>
         <div class="editor-wrap">
           <div class="line-nums" id="lineNums">1</div>
-          <textarea class="sql-input" id="sqlInput" spellcheck="false" placeholder="Вставьте сюда скрипт после выполнения в PL/SQL Developer…"></textarea>
+          <div class="editor-stack">
+            <div class="code-backdrop" id="codeBackdrop" aria-hidden="true"></div>
+            <textarea class="sql-input" id="sqlInput" spellcheck="false" placeholder="Вставьте сюда скрипт после выполнения в PL/SQL Developer…"></textarea>
+          </div>
         </div>
+        <div class="val-warn" id="valWarn"></div>
         <div class="toolbar">
           <button type="button" class="btn-run" id="btnCheck">✓ Проверить</button>
           <button type="button" class="btn-secondary" id="btnClear">Очистить</button>
-          <button type="button" class="btn-secondary" id="btnReport">Мой отчёт</button>
+          <button type="button" class="btn-secondary btn-report" id="btnReport" disabled title="Доступен после зачёта задания">Мой отчёт</button>
           <span class="hint-kbd">Ctrl + Enter</span>
         </div>
       </div>
 
-      <div class="panel">
-        <div class="panel-head">Результат проверки</div>
-        <div class="output-body" id="outputBody">
+      <div class="panel panel-output">
+        <div class="panel-head panel-head-tabs">
+          <button type="button" class="tab-btn active" data-tab="checklist" id="tabChecklist">
+            Чеклист <span class="tab-progress" id="checklistProgress">0/9</span>
+          </button>
+          <button type="button" class="tab-btn" data-tab="result" id="tabResult">Результат</button>
+        </div>
+        <div class="output-body tab-pane" id="checklistBody">
+          <p style="color:#64748b;font-style:italic">Вставьте код — прогресс по блокам задания обновится автоматически.</p>
+        </div>
+        <div class="output-body tab-pane" id="outputBody" hidden>
           <p style="color:#64748b;font-style:italic">Вставьте код и нажмите «Проверить».</p>
         </div>
       </div>
@@ -158,18 +430,51 @@
           <div class="panel-head">Подсказка</div>
           <div class="side-body" id="hintBody" style="color:#94a3b8;font-size:.85rem">
             Тренажёр анализирует структуру запроса, допускает разные формулировки (to_date, FETCH FIRST, ROWNUM). 
-            Ошибки Oracle эмулируются для типичных промахов. История сохраняется в браузере.
+            Ошибки Oracle эмулируются для типичных промахов. Результаты отправляются преподавателю после прохождения.
           </div>
         </div>
       </div>
     </div>
   </div>
 
+  <div class="modal-overlay" id="modalDetails">
+    <div class="modal">
+      <div class="modal-header">
+        <h2>Подробности проверки</h2>
+        <button type="button" class="modal-close" id="btnCloseDetails" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body" id="detailsContent"></div>
+    </div>
+  </div>
+
   <div class="modal-overlay" id="modalReport">
     <div class="modal">
-      <h2>Ваш профиль обучения</h2>
-      <div id="reportContent"></div>
-      <button type="button" id="btnCloseReport">Закрыть</button>
+      <div class="modal-header">
+        <h2>Ваш профиль обучения</h2>
+        <button type="button" class="modal-close" id="btnCloseReport" aria-label="Закрыть">×</button>
+      </div>
+      <div class="modal-body" id="reportContent"></div>
+    </div>
+  </div>
+
+  <div class="modal-overlay" id="modalCongrats">
+    <div class="modal modal-congrats">
+      <div class="modal-body" id="congratsContent"></div>
+    </div>
+  </div>
+
+  <div id="achFloatTip" class="ach-float-tip" aria-hidden="true"></div>
+
+  <div id="identRoot" class="onboarding-root" aria-modal="true" role="dialog">
+    <div class="onboarding-dim"></div>
+    <div class="onboarding-box">
+      <p class="onboarding-title">Представьтесь, пожалуйста</p>
+      <div class="onboarding-subtitle">
+        <p style="margin:0 0 4px;color:#cbd5e1">ФИО:</p>
+        <input type="text" id="identName" class="onboarding-input" placeholder="Иванов Иван">
+        <p id="identError" style="margin:8px 0 0;color:#fca5a5;font-size:13px;display:none">Введите ФИО.</p>
+      </div>
+      <button type="button" class="onboarding-btn" id="identBtn">Приступить к заданию</button>
     </div>
   </div>
 
@@ -177,28 +482,290 @@
   <script src="js/oracle-errors.js"></script>
   <script src="js/checker.js"></script>
   <script src="js/history.js"></script>
+  <script src="js/report.js"></script>
   <script src="js/tasks.js"></script>
   <script>
   (function(){
     var sqlInput = document.getElementById('sqlInput');
     var lineNums = document.getElementById('lineNums');
+    var codeBackdrop = document.getElementById('codeBackdrop');
+    var valWarn = document.getElementById('valWarn');
     var outputBody = document.getElementById('outputBody');
+    var checklistBody = document.getElementById('checklistBody');
+    var checklistProgress = document.getElementById('checklistProgress');
     var historyBody = document.getElementById('historyBody');
     var taskText = document.getElementById('taskText');
     var taskLabel = document.getElementById('taskLabel');
     var taskNum = document.getElementById('taskNum');
     var taskTotal = document.getElementById('taskTotal');
+    var btnReport = document.getElementById('btnReport');
+    var btnNextTask = document.getElementById('btnNextTask');
     var taskStep = 0;
+    var lastResult = null;
+    var resultsByTask = {};
+    var activeTab = 'checklist';
+    var previewTimer = null;
+    var DRAFT_KEY = 'plsql_trainer_v1_draft';
+    var PROGRESS_KEY = 'plsql_trainer_v1_progress';
+    var trainerReady = false;
 
     taskTotal.textContent = String(TASKS.length);
+
+    function identOpen(){
+      return document.getElementById('identRoot').classList.contains('is-open');
+    }
+
+    function setTrainerLocked(locked){
+      sqlInput.disabled = locked;
+      document.getElementById('btnCheck').disabled = locked;
+      document.getElementById('btnClear').disabled = locked;
+      btnReport.disabled = locked || !History.hasAnyPass();
+    }
+
+    function loadProgress(){
+      try {
+        var p = JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}');
+        if (typeof p.taskStep === 'number' && p.taskStep >= 0 && p.taskStep < TASKS.length){
+          taskStep = p.taskStep;
+        }
+      } catch (e) {}
+    }
+
+    function saveProgress(){
+      localStorage.setItem(PROGRESS_KEY, JSON.stringify({ taskStep: taskStep }));
+    }
+
+    function loadDrafts(){
+      try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || '{}'); }
+      catch (e) { return {}; }
+    }
+
+    function saveDraft(){
+      var task = TASKS[taskStep];
+      var drafts = loadDrafts();
+      if (sqlInput.value.trim()) drafts[task.id] = sqlInput.value;
+      else delete drafts[task.id];
+      localStorage.setItem(DRAFT_KEY, JSON.stringify(drafts));
+    }
+
+    function loadDraftForTask(){
+      var task = TASKS[taskStep];
+      sqlInput.value = loadDrafts()[task.id] || '';
+      updateLineNums();
+      updateValidation();
+      previewChecklist();
+    }
+
+    function switchTab(tab){
+      activeTab = tab;
+      document.querySelectorAll('.tab-btn').forEach(function(btn){
+        btn.classList.toggle('active', btn.dataset.tab === tab);
+      });
+      checklistBody.hidden = tab !== 'checklist';
+      outputBody.hidden = tab !== 'result';
+    }
+
+    function updateChecklistProgress(passed, total){
+      checklistProgress.textContent = passed + '/' + total;
+    }
+
+    function getChecklistGroups(task){
+      if (task.checklist && task.checklist.length) return task.checklist;
+      return task.rubric.map(function(item){ return { label: item.label, ids: [item.id] }; });
+    }
+
+    function buildChecklistItems(task, criteria){
+      var byId = {};
+      criteria.forEach(function(c){ byId[c.id] = c; });
+      return getChecklistGroups(task).map(function(group){
+        var items = group.ids.map(function(id){ return byId[id]; }).filter(Boolean);
+        var pass = items.length > 0 && items.every(function(c){ return c.pass; });
+        return { label: group.label, pass: pass };
+      });
+    }
+
+    function renderChecklist(task, criteria){
+      var groups = criteria
+        ? buildChecklistItems(task, criteria)
+        : getChecklistGroups(task).map(function(g){ return { label: g.label, pass: false }; });
+      var passed = groups.filter(function(g){ return g.pass; }).length;
+      var total = groups.length;
+      updateChecklistProgress(passed, total);
+
+      var html = '<div class="checklist-header"><b>' + passed + '</b> из ' + total + ' блоков</div>';
+      html += '<ul class="checklist-groups">';
+      groups.forEach(function(g){
+        html += '<li class="' + (g.pass ? 'ok' : 'fail') + '">' +
+          '<span class="chk-icon">' + (g.pass ? '✓' : '○') + '</span>' +
+          '<span>' + esc(g.label) + '</span></li>';
+      });
+      html += '</ul>';
+      html += '<p class="checklist-hint">Обновляется при редактировании. «Проверить» — официальная попытка в историю.</p>';
+      checklistBody.innerHTML = html;
+    }
+
+    function renderChecklistEmpty(task){
+      renderChecklist(task, null);
+    }
+
+    function previewChecklist(){
+      var task = TASKS[taskStep];
+      if (!sqlInput.value.trim()){
+        renderChecklistEmpty(task);
+        return;
+      }
+      renderChecklist(task, Checker.run(sqlInput.value, task).criteria);
+    }
+
+    function schedulePreviewAndSave(){
+      clearTimeout(previewTimer);
+      previewTimer = setTimeout(function(){
+        previewChecklist();
+        saveDraft();
+      }, 300);
+    }
 
     function esc(s){
       return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
     }
 
+    function updateReportBtn(){
+      var ok = History.hasAnyPass();
+      btnReport.disabled = !ok;
+      btnReport.title = ok ? 'Итоговый отчёт по пройденным заданиям' : 'Доступен после зачёта хотя бы одного задания';
+    }
+
     function updateLineNums(){
-      var n = sqlInput.value.split('\n').length || 1;
+      var lines = sqlInput.value.split('\n');
+      var n = lines.length || 1;
       lineNums.textContent = Array.from({length:n},function(_,i){return i+1;}).join('\n');
+    }
+
+    function updateValidation(){
+      var code = sqlInput.value;
+      if (!code.trim()){
+        codeBackdrop.innerHTML = '';
+        valWarn.textContent = '';
+        return;
+      }
+      var v = SqlUtil.validateCode(code);
+      var highlighted = SqlUtil.highlightSql(code);
+      codeBackdrop.innerHTML = highlighted.map(function (hl, i) {
+        var cls = v.invalidLines[i + 1] ? ' class="ln-invalid"' : '';
+        return '<span' + cls + '>' + hl + '</span>';
+      }).join('\n');
+
+      if (v.problems.length){
+        valWarn.textContent = v.problems.slice(0, 2).map(function(p){
+          return 'Команда ' + p.index + ' (стр. ' + p.lines[0] + '): ' + p.issues.join('; ');
+        }).join(' · ');
+      } else {
+        valWarn.textContent = '';
+      }
+    }
+
+    function syncEditorScroll(){
+      lineNums.scrollTop = sqlInput.scrollTop;
+      codeBackdrop.scrollTop = sqlInput.scrollTop;
+      codeBackdrop.scrollLeft = sqlInput.scrollLeft;
+    }
+
+    function renderResultPanelForTask(){
+      var task = TASKS[taskStep];
+      var saved = resultsByTask[task.id];
+      if (saved){
+        renderResult(saved);
+      } else {
+        lastResult = null;
+        outputBody.innerHTML = '<p style="color:#64748b;font-style:italic">Вставьте код и нажмите «Проверить».</p>';
+      }
+    }
+
+    function isTaskPassed(taskId){
+      if (resultsByTask[taskId] && resultsByTask[taskId].pass) return true;
+      return History.load().attempts.some(function(a){ return a.taskId === taskId && a.pass; });
+    }
+
+    function updateNextBtn(){
+      var hasNext = taskStep < TASKS.length - 1;
+      if (!hasNext){
+        btnNextTask.hidden = true;
+        return;
+      }
+      btnNextTask.hidden = false;
+      var nextNum = taskStep + 2;
+      btnNextTask.textContent = 'Задание ' + nextNum + ' →';
+      var ready = isTaskPassed(TASKS[taskStep].id);
+      btnNextTask.disabled = !ready;
+      btnNextTask.classList.toggle('ready', ready);
+      btnNextTask.title = ready
+        ? 'Перейти к заданию ' + nextNum
+        : 'Доступно после зачёта текущего задания';
+    }
+
+    function goToNextTask(){
+      if (taskStep >= TASKS.length - 1) return;
+      if (!isTaskPassed(TASKS[taskStep].id)) return;
+      taskStep++;
+      renderTask();
+      switchTab('checklist');
+    }
+
+    function goToNextTaskFromModal(){
+      document.getElementById('modalCongrats').classList.remove('visible');
+      goToNextTask();
+    }
+
+    function closeCongratsModal(){
+      document.getElementById('modalCongrats').classList.remove('visible');
+      updateNextBtn();
+    }
+
+    function buildStepProgress(completedCount, total){
+      var html = '<div class="step-track" role="img" aria-label="Пройдено ' + completedCount + ' из ' + total + '">';
+      for (var i = 1; i <= total; i++){
+        if (i > 1) html += '<div class="step-line' + (i <= completedCount ? ' done' : '') + '"></div>';
+        var cls = 'step-node';
+        if (i <= completedCount) cls += ' done' + (i === completedCount ? ' pop' : '');
+        else if (i === completedCount + 1) cls += ' current';
+        html += '<div class="' + cls + '" title="Задание ' + i + '">' + i + '</div>';
+      }
+      html += '</div>';
+      html += '<div class="step-stars" aria-hidden="true">';
+      for (var s = 1; s <= total; s++){
+        html += '<span class="step-star' + (s <= completedCount ? ' lit' : '') + '">★</span>';
+      }
+      html += '</div>';
+      html += '<div class="step-caption">' + completedCount + ' из ' + total + ' заданий</div>';
+      return html;
+    }
+
+    function showCongratsModal(completedNum, isLast){
+      if (isLast){
+        Report.markCompleted();
+        if (Report.isConfigured() && Report.CONFIG.autoSendOnComplete){
+          Report.sendReport('complete', TASKS);
+        }
+      }
+      var html = '<div class="congrats-emoji">' + (isLast ? '🏆' : '🎉') + '</div>';
+      html += '<h2 style="margin:0 0 8px;font-size:1.25rem;color:#f8fafc">Задание ' + completedNum + ' зачтено!</h2>';
+      html += '<p>' + (isLast
+        ? 'Вы прошли все задания тренажёра. Отличная работа!'
+        : 'Ознакомьтесь с результатом — переход к следующему заданию доступен вверху.') + '</p>';
+      html += buildStepProgress(completedNum, TASKS.length);
+      html += '<div class="congrats-actions">';
+      html += '<button type="button" class="btn-congrats" id="btnCongratsClose">' +
+        (isLast ? 'Отлично!' : 'Посмотреть результат') + '</button>';
+      if (!isLast){
+        html += '<button type="button" class="btn-congrats-secondary" id="btnCongratsNext">К следующему заданию →</button>';
+      }
+      html += '</div>';
+      document.getElementById('congratsContent').innerHTML = html;
+      document.getElementById('modalCongrats').classList.add('visible');
+      document.getElementById('btnCongratsClose').onclick = closeCongratsModal;
+      if (!isLast){
+        document.getElementById('btnCongratsNext').onclick = goToNextTaskFromModal;
+      }
     }
 
     function renderTask(){
@@ -206,6 +773,10 @@
       taskLabel.textContent = t.title;
       taskText.innerHTML = t.html;
       taskNum.textContent = String(taskStep + 1);
+      loadDraftForTask();
+      renderResultPanelForTask();
+      updateNextBtn();
+      saveProgress();
     }
 
     function renderHistory(){
@@ -222,78 +793,189 @@
     }
 
     function renderResult(result){
-      var html = '<div class="score-num">' + result.score + '%</div>';
+      lastResult = result;
+      var passed = result.criteria.filter(function(c){ return c.pass; }).length;
+      var total = result.criteria.length;
+
+      var html = '<div class="score-block">';
+      html += '<div class="score-num">' + result.score + '%</div>';
       html += '<div class="score-bar"><div class="score-fill" style="width:' + result.score + '%"></div></div>';
-      html += result.pass ? '<p style="color:#4ade80;margin:0 0 10px">✓ Задание зачтено</p>' :
-        '<p style="color:#fbbf24;margin:0 0 10px">Ещё не все критерии выполнены</p>';
+      html += '<div class="score-label">' + passed + ' из ' + total + ' критериев · ' +
+        (result.pass ? 'задание зачтено ✓' : 'продолжайте работу') + '</div>';
+      html += '</div>';
 
-      result.criteria.forEach(function(c){
-        html += '<div class="crit ' + (c.pass ? 'crit-ok' : 'crit-fail') + '">' +
-          '<span class="crit-icon">' + (c.pass ? '✓' : '✗') + '</span>' +
-          '<span><b>' + esc(c.label) + '</b>' +
-          (c.detail ? '<br><small>' + esc(c.detail) + '</small>' : '') +
-          (!c.pass && c.hint ? '<br><small style="opacity:.85">' + esc(c.hint) + '</small>' : '') +
-          '</span></div>';
-      });
-
-      if (result.oracleErrors.length){
-        html += '<p style="margin:14px 0 6px;font-weight:600;color:#fca5a5">Эмуляция Oracle</p>';
-        result.oracleErrors.forEach(function(e){
-          html += '<div class="ora' + (e.code === 'INFO' ? ' ora-info' : '') + '">' +
-            '<div class="ora-code">' + esc(e.code) + ': ' + esc(e.title) + '</div>' +
-            '<div style="margin-top:4px">' + esc(e.explain) + '</div>' +
-            (e.detail ? '<div style="margin-top:4px;opacity:.9">' + esc(e.detail) + '</div>' : '') +
-            '</div>';
-        });
-      }
-
-      if (result.weaknesses.length){
-        html += '<p style="margin-top:12px;font-size:.85rem;color:#94a3b8"><b>Слабые места:</b> ' +
-          esc(result.weaknesses.slice(0,3).join('; ')) + '</p>';
-      }
-
+      html += '<button type="button" class="btn-secondary btn-details" id="btnDetails">Подробности проверки</button>';
       outputBody.innerHTML = html;
+      document.getElementById('btnDetails').onclick = showDetails;
+    }
+
+    function showDetails(){
+      if (!lastResult) return;
+      var html = '<ul class="details-crit">';
+      lastResult.criteria.forEach(function(c){
+        html += '<li class="' + (c.pass ? 'ok' : 'fail') + '">' +
+          '<span>' + (c.pass ? '✓' : '✗') + '</span>' +
+          '<span><span>' + esc(c.label) + '</span>';
+        if (!c.pass && c.detail) html += '<small>' + esc(c.detail) + '</small>';
+        if (!c.pass && c.hint) html += '<small>' + esc(c.hint) + '</small>';
+        html += '</span></li>';
+      });
+      html += '</ul>';
+
+      if (lastResult.oracleErrors.length){
+        var oraReal = lastResult.oracleErrors.filter(function(e){ return e.code !== 'INFO'; });
+        if (oraReal.length){
+          html += '<p style="margin:14px 0 6px;font-weight:600;color:#fca5a5;font-size:.82rem">Эмуляция Oracle</p>';
+          oraReal.forEach(function(e){
+            html += '<div class="ora">' +
+              '<div class="ora-code">' + esc(e.code) + ': ' + esc(e.title) + '</div>' +
+              '<div style="margin-top:4px">' + esc(e.explain) + '</div>' +
+              (e.detail ? '<div style="margin-top:4px;opacity:.9">' + esc(e.detail) + '</div>' : '') +
+              '</div>';
+          });
+        }
+      }
+
+      document.getElementById('detailsContent').innerHTML = html;
+      document.getElementById('modalDetails').classList.add('visible');
     }
 
     function checkCode(){
+      if (!trainerReady || identOpen()) return;
       var task = TASKS[taskStep];
       var code = sqlInput.value;
       if (!code.trim()){
         outputBody.innerHTML = '<p style="color:#fecaca">Вставьте SQL-код для проверки.</p>';
+        switchTab('result');
         return;
       }
       var result = Checker.run(code, task);
       History.addAttempt(task.id, result, code);
+      resultsByTask[task.id] = result;
       renderResult(result);
+      switchTab('result');
       renderHistory();
-      if (result.pass && taskStep < TASKS.length - 1){
-        taskStep++;
-        renderTask();
+      updateReportBtn();
+      if (result.pass){
+        updateNextBtn();
+        showCongratsModal(taskStep + 1, taskStep >= TASKS.length - 1);
+      } else {
+        updateNextBtn();
       }
+    }
+
+    function hideAchFloatTip(){
+      var tip = document.getElementById('achFloatTip');
+      tip.style.display = 'none';
+      tip.setAttribute('aria-hidden', 'true');
+    }
+
+    function positionAchFloatTip(ach, tip){
+      var rect = ach.getBoundingClientRect();
+      var tipW = Math.min(200, window.innerWidth - 16);
+      tip.style.width = tipW + 'px';
+      tip.style.display = 'block';
+      var tipH = tip.offsetHeight;
+      var gap = 6;
+      var left = rect.left + rect.width / 2 - tipW / 2;
+      var top = rect.bottom + gap;
+      left = Math.max(8, Math.min(left, window.innerWidth - tipW - 8));
+      if (top + tipH > window.innerHeight - 8){
+        top = rect.top - tipH - gap;
+      }
+      top = Math.max(8, Math.min(top, window.innerHeight - tipH - 8));
+      tip.style.left = left + 'px';
+      tip.style.top = top + 'px';
+    }
+
+    function bindAchFloatTips(container){
+      var floatTip = document.getElementById('achFloatTip');
+      container.querySelectorAll('.ach').forEach(function(ach){
+        var src = ach.querySelector('.ach-tip');
+        if (!src) return;
+        function show(){
+          floatTip.textContent = src.textContent;
+          floatTip.className = 'ach-float-tip';
+          if (ach.classList.contains('ach-rare')) floatTip.classList.add('ach-float-rare');
+          if (ach.classList.contains('ach-legendary')) floatTip.classList.add('ach-float-legendary');
+          floatTip.setAttribute('aria-hidden', 'false');
+          positionAchFloatTip(ach, floatTip);
+        }
+        ach.addEventListener('mouseenter', show);
+        ach.addEventListener('focus', show);
+        ach.addEventListener('mouseleave', hideAchFloatTip);
+        ach.addEventListener('blur', hideAchFloatTip);
+      });
     }
 
     function showReport(){
+      if (!History.hasAnyPass()){
+        return;
+      }
       var r = History.report(TASKS);
       var html = '<p>Всего попыток: <b>' + r.attempts + '</b></p>';
-      if (r.strengths.length){
-        html += '<p><b style="color:#4ade80">Сильные стороны</b></p><ul>';
-        r.strengths.forEach(function(s){ html += '<li>' + esc(s) + '</li>'; });
+
+      if (r.firstTryStrengths.length){
+        html += '<p><b style="color:#4ade80">Сразу получилось хорошо</b></p><ul>';
+        r.firstTryStrengths.forEach(function(s){ html += '<li>' + esc(s) + '</li>'; });
         html += '</ul>';
       }
-      if (r.weaknesses.length){
-        html += '<p><b style="color:#fca5a5">Зоны роста</b></p><ul>';
-        r.weaknesses.forEach(function(w){ html += '<li>' + esc(w) + '</li>'; });
+
+      if (r.achievements && r.achievements.length){
+        html += '<p><b style="color:#4ade80">Ачивки</b> <span style="font-weight:400;color:#94a3b8">(уверенные навыки)</span></p>';
+        html += '<div class="ach-grid">';
+        r.achievements.forEach(function(a){
+          var tier = a.rarity || 'common';
+          html += '<div class="ach ach-' + tier + '" tabindex="0">' +
+            '<div class="ach-icon">' + (a.emoji || '⭐') + '</div>' +
+            '<div class="ach-title">' + esc(a.title) + '</div>' +
+            '<div class="ach-tip">' + esc(a.desc) + '</div>' +
+            '</div>';
+        });
+        html += '</div>';
+      }
+
+      if (r.growthAreas.length){
+        html += '<p><b style="color:#fca5a5">Повторяющиеся ошибки</b> <span style="font-weight:400;color:#94a3b8">(по типам)</span></p><ul>';
+        r.growthAreas.slice(0, 5).forEach(function(g){
+          html += '<li>' + esc(g.label) + ' — <b>' + g.fails + '</b> промах(ов)';
+          if (g.passes) html += ', <span style="color:#94a3b8">' + g.passes + ' успешно</span>';
+          html += '</li>';
+        });
         html += '</ul>';
       }
-      if (!r.strengths.length && !r.weaknesses.length){
-        html += '<p style="color:#94a3b8">Сначала выполните хотя бы одну проверку.</p>';
-      }
+
+      html += '<p style="font-size:.82rem;color:#64748b;margin-top:12px">Отчёт обобщает типичные проблемы, а не отдельные команды. Открывается после зачёта задания.</p>';
+      html += '<div class="report-actions">';
+      html += '<button type="button" class="btn-congrats" id="btnReportSend">Отправить преподавателю</button>';
+      html += '<button type="button" class="btn-congrats-secondary" id="btnReportDownload">Скачать отчёт</button>';
+      html += '<p class="report-send-status" id="reportSendStatus"></p>';
+      html += '</div>';
       document.getElementById('reportContent').innerHTML = html;
+      bindAchFloatTips(document.getElementById('reportContent'));
       document.getElementById('modalReport').classList.add('visible');
+      document.getElementById('btnReportDownload').onclick = function(){
+        Report.downloadReport(TASKS);
+      };
+      document.getElementById('btnReportSend').onclick = function(){
+        var ss = document.getElementById('reportSendStatus');
+        if (!Report.isConfigured()){
+          ss.textContent = 'Автоотправка не настроена. Скачайте отчёт вручную.';
+          return;
+        }
+        ss.textContent = 'Отправка…';
+        Report.sendReport('manual', TASKS, function(ok){
+          ss.textContent = ok ? '✓ Результат отправлен преподавателю.' : '⚠ Не удалось отправить. Скачайте отчёт.';
+        });
+      };
     }
 
-    sqlInput.addEventListener('input', updateLineNums);
-    sqlInput.addEventListener('scroll', function(){ lineNums.scrollTop = sqlInput.scrollTop; });
+    sqlInput.addEventListener('input', function(){
+      updateLineNums();
+      updateValidation();
+      schedulePreviewAndSave();
+    });
+    sqlInput.addEventListener('scroll', syncEditorScroll);
     sqlInput.addEventListener('keydown', function(e){
       if (e.key === 'Tab'){ e.preventDefault(); var s = sqlInput.selectionStart;
         sqlInput.value = sqlInput.value.slice(0,s) + '  ' + sqlInput.value.slice(sqlInput.selectionEnd);
@@ -302,15 +984,96 @@
     });
 
     document.getElementById('btnCheck').onclick = checkCode;
-    document.getElementById('btnClear').onclick = function(){ sqlInput.value = ''; updateLineNums(); };
+    btnNextTask.onclick = goToNextTask;
+    document.getElementById('btnClear').onclick = function(){
+      sqlInput.value = '';
+      updateLineNums();
+      updateValidation();
+      saveDraft();
+      previewChecklist();
+    };
+    document.getElementById('tabChecklist').onclick = function(){ switchTab('checklist'); };
+    document.getElementById('tabResult').onclick = function(){ switchTab('result'); };
     document.getElementById('btnReport').onclick = showReport;
     document.getElementById('btnCloseReport').onclick = function(){
+      hideAchFloatTip();
       document.getElementById('modalReport').classList.remove('visible');
     };
+    document.getElementById('btnCloseDetails').onclick = function(){
+      document.getElementById('modalDetails').classList.remove('visible');
+    };
+    document.getElementById('modalDetails').onclick = function(e){
+      if (e.target === e.currentTarget) e.currentTarget.classList.remove('visible');
+    };
+    document.getElementById('modalReport').onclick = function(e){
+      if (e.target === e.currentTarget){
+        hideAchFloatTip();
+        e.currentTarget.classList.remove('visible');
+      }
+    };
 
+    document.getElementById('reportContent').addEventListener('scroll', hideAchFloatTip);
+
+    var panelEditor = document.getElementById('panelEditor');
+    var btnEditorFullscreen = document.getElementById('btnEditorFullscreen');
+    function setEditorFullscreen(on){
+      panelEditor.classList.toggle('fullscreen', on);
+      btnEditorFullscreen.textContent = on ? '⤡' : '⛶';
+      btnEditorFullscreen.title = on ? 'Выйти из полноэкранного режима' : 'Полноэкранный режим';
+      btnEditorFullscreen.setAttribute('aria-label', btnEditorFullscreen.title);
+    }
+    btnEditorFullscreen.onclick = function(){ setEditorFullscreen(!panelEditor.classList.contains('fullscreen')); };
+    document.addEventListener('keydown', function(e){
+      if (e.key === 'Escape'){
+        if (panelEditor.classList.contains('fullscreen')) setEditorFullscreen(false);
+        hideAchFloatTip();
+        document.getElementById('modalDetails').classList.remove('visible');
+        document.getElementById('modalReport').classList.remove('visible');
+        if (document.getElementById('modalCongrats').classList.contains('visible')) closeCongratsModal();
+      }
+    });
+    document.getElementById('modalCongrats').onclick = function(e){
+      if (e.target === e.currentTarget) closeCongratsModal();
+    };
+
+    window.addEventListener('pagehide', function(e){
+      var t = Report.getTelemetry();
+      if (!t.startedAt) return;
+      if (t.completed || t.completeSent || t.leaveSent) return;
+      if (e && e.persisted) return;
+      if (Report.isConfigured() && Report.CONFIG.sendOnLeave){
+        Report.sendReport('leave', TASKS);
+      }
+    });
+
+    (function initIdent(){
+      var IDENT_GROUP = 'Отдел цифровой подготовки';
+      var root = document.getElementById('identRoot');
+      var nameEl = document.getElementById('identName');
+      var errEl = document.getElementById('identError');
+      var btn = document.getElementById('identBtn');
+      root.classList.add('is-open');
+      document.body.style.overflow = 'hidden';
+      setTrainerLocked(true);
+      setTimeout(function(){ nameEl.focus(); }, 50);
+      function submit(){
+        var nm = nameEl.value.trim();
+        if (!nm){ errEl.style.display = 'block'; return; }
+        Report.initSession(nm, IDENT_GROUP);
+        trainerReady = true;
+        root.classList.remove('is-open');
+        document.body.style.overflow = '';
+        setTrainerLocked(false);
+        updateReportBtn();
+      }
+      btn.addEventListener('click', submit);
+      nameEl.addEventListener('keydown', function(e){ if (e.key === 'Enter') submit(); });
+    })();
+
+    loadProgress();
     renderTask();
     renderHistory();
-    updateLineNums();
+    updateReportBtn();
   })();
   </script>
 </body>
