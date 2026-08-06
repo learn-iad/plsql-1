@@ -53,7 +53,7 @@ var OracleErrors = (function () {
 
     if (ctx && ctx.missingSchema) {
       found.push(Object.assign({}, CATALOG.MISSING_SCHEMA, {
-        detail: 'Ожидалась схема в: ' + ctx.missingSchema.join(', ')
+        detail: 'Ожидалась схема'
       }));
     }
 
