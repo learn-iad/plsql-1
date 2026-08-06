@@ -19,20 +19,40 @@
       display:flex;flex-direction:column;
       padding:max(10px,env(safe-area-inset-top)) max(10px,env(safe-area-inset-right)) max(10px,env(safe-area-inset-bottom)) max(10px,env(safe-area-inset-left));
     }
-    .app{flex:1;display:flex;flex-direction:column;max-width:1200px;width:100%;margin:0 auto;min-height:0;gap:10px}
+    .app{flex:1;display:flex;flex-direction:column;width:100%;margin:0 auto;min-height:0;gap:10px}
     .header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .brand{display:flex;align-items:center;gap:10px}
     .brand-icon{
       width:36px;height:36px;border-radius:10px;flex-shrink:0;
-      background:linear-gradient(135deg,#14532d 0%,#166534 100%);
+      background:linear-gradient(135deg,#14532d 0%,#166534 35%,#15803d 55%,#166534 75%,#14532d 100%);
+      background-size:220% 220%;
       border:1px solid rgba(74,222,128,.35);
       display:flex;align-items:center;justify-content:center;
       font-size:9px;font-weight:800;color:#fff;letter-spacing:-.02em;
-      animation:brand-glow 2.4s ease-in-out infinite;
+      animation:brand-flow 7s ease-in-out infinite, brand-glow 7s ease-in-out infinite;
+    }
+    @keyframes brand-flow{
+      0%,100%{background-position:0% 50%}
+      33%{background-position:50% 100%}
+      66%{background-position:100% 50%}
     }
     @keyframes brand-glow{
-      0%,100%{box-shadow:0 0 4px rgba(74,222,128,.2), inset 0 0 6px rgba(74,222,128,.08)}
-      50%{box-shadow:0 0 14px rgba(74,222,128,.55),0 0 24px rgba(34,197,94,.25), inset 0 0 10px rgba(74,222,128,.15)}
+      0%,100%{
+        box-shadow:0 0 5px rgba(74,222,128,.22),0 0 10px rgba(34,197,94,.08), inset 0 0 7px rgba(74,222,128,.08);
+        border-color:rgba(74,222,128,.32);
+      }
+      25%{
+        box-shadow:0 0 7px rgba(110,231,183,.32),0 0 14px rgba(52,211,153,.14), inset 0 0 9px rgba(74,222,128,.11);
+        border-color:rgba(110,231,183,.4);
+      }
+      50%{
+        box-shadow:0 0 9px rgba(74,222,128,.42),0 0 18px rgba(34,197,94,.18), inset 0 0 11px rgba(52,211,153,.13);
+        border-color:rgba(74,222,128,.48);
+      }
+      75%{
+        box-shadow:0 0 7px rgba(52,211,153,.32),0 0 14px rgba(74,222,128,.14), inset 0 0 9px rgba(74,222,128,.11);
+        border-color:rgba(52,211,153,.4);
+      }
     }
     .brand h1{margin:0;font-size:1.05rem;font-weight:600;color:#f8fafc}
     .brand span{font-size:.78rem;color:#94a3b8;display:block;margin-top:1px}
@@ -43,22 +63,55 @@
     .progress-pill b{color:#4ade80}
     .header-nav{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .btn-next-task{
-      padding:6px 12px;border-radius:999px;font-size:.78rem;font-weight:600;
-      border:1px solid rgba(74,222,128,.2);background:rgba(15,40,30,.55);color:#64748b;
+      padding:7px 14px;border-radius:999px;font-size:.8rem;font-weight:700;
+      border:1px solid rgba(251,191,36,.35);background:rgba(45,35,10,.55);color:#78716c;
       font-family:inherit;cursor:not-allowed;white-space:nowrap;
+      transition:background .2s, border-color .2s, box-shadow .2s, color .2s;
     }
     .btn-next-task.ready{
-      color:#4ade80;border-color:rgba(74,222,128,.45);cursor:pointer;
+      color:#1c1917;border-color:rgba(251,191,36,.75);
+      background:linear-gradient(135deg,#fde047 0%,#fbbf24 55%,#f59e0b 100%);
+      cursor:pointer;
+      box-shadow:0 0 12px rgba(251,191,36,.45),0 0 24px rgba(245,158,11,.25);
+      animation:btn-next-glow 2.8s ease-in-out infinite;
     }
-    .btn-next-task.ready:hover{background:rgba(20,83,45,.45)}
+    .btn-next-task.ready:hover{
+      background:linear-gradient(135deg,#fef08a 0%,#fcd34d 55%,#fbbf24 100%);
+      box-shadow:0 0 16px rgba(251,191,36,.6),0 0 32px rgba(245,158,11,.35);
+    }
+    @keyframes btn-next-glow{
+      0%,100%{box-shadow:0 0 10px rgba(251,191,36,.4),0 0 20px rgba(245,158,11,.2)}
+      50%{box-shadow:0 0 16px rgba(251,191,36,.65),0 0 32px rgba(245,158,11,.35)}
+    }
     .task-card{
       background:rgba(15,40,30,.45);border:1px solid rgba(74,222,128,.15);
       border-radius:14px;padding:14px 16px;max-height:220px;overflow:auto;
     }
     .task-label{font-size:.72rem;text-transform:uppercase;letter-spacing:.06em;color:#64748b;margin-bottom:6px;font-weight:600}
     .task-text{margin:0;font-size:.92rem;line-height:1.55;color:#e2e8f0}
-    .workspace{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px;min-height:0}
-    @media(max-width:860px){.workspace{grid-template-columns:1fr}}
+    .workspace{flex:1;display:flex;flex-direction:column;gap:10px;min-height:0}
+    .workspace-split{
+      flex:1;display:flex;min-height:0;align-items:stretch;
+      --split-editor:70%;
+    }
+    .workspace-split > .panel-editor{
+      flex:0 0 var(--split-editor);min-width:180px;max-width:calc(100% - 190px);
+    }
+    .workspace-split > .panel-output{flex:1 1 0;min-width:180px}
+    .workspace-resizer{
+      flex:0 0 10px;width:10px;margin:0 -5px;cursor:col-resize;z-index:2;
+      position:relative;touch-action:none;
+    }
+    .workspace-resizer::before{
+      content:'';position:absolute;top:8px;bottom:8px;left:50%;transform:translateX(-50%);
+      width:3px;border-radius:2px;background:rgba(74,222,128,.15);transition:background .15s;
+    }
+    .workspace-resizer:hover::before,.workspace-resizer.dragging::before{background:rgba(74,222,128,.45)}
+    @media(max-width:860px){
+      .workspace-split{flex-direction:column}
+      .workspace-split > .panel-editor{flex:1 1 auto;max-width:none}
+      .workspace-resizer{display:none}
+    }
     .panel{
       display:flex;flex-direction:column;min-height:0;
       background:rgba(15,40,30,.4);border:1px solid rgba(74,222,128,.12);
@@ -332,7 +385,7 @@
       background:transparent;color:#94a3b8;font-family:inherit;font-size:.88rem;font-weight:600;cursor:pointer;
     }
     .btn-congrats-secondary:hover{color:#e2e8f0;border-color:rgba(74,222,128,.4)}
-    .bottom-row{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:10px}
+    .bottom-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
     @media(max-width:860px){.bottom-row{grid-template-columns:1fr}}
     .onboarding-root{
       position:fixed;inset:0;z-index:5000;display:none;flex-direction:column;
@@ -361,6 +414,138 @@
     .onboarding-input::placeholder{color:#64748b}
     .report-actions{margin-top:16px;display:flex;flex-direction:column;gap:8px}
     .report-send-status{font-size:.82rem;color:#64748b;margin:0;text-align:center;min-height:1.2em}
+    .ach-toast-stack{
+      position:fixed;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));
+      z-index:260;display:flex;flex-direction:column;gap:10px;max-width:min(380px,calc(100vw - 24px));pointer-events:none;
+    }
+    .ach-toast{
+      pointer-events:auto;position:relative;overflow:hidden;border-radius:16px;
+      animation:ach-toast-in .55s cubic-bezier(.34,1.45,.64,1);
+      display:flex;flex-direction:column;min-width:280px;
+    }
+    .ach-toast::before{
+      content:'';position:absolute;inset:0;opacity:.55;pointer-events:none;
+    }
+    .ach-toast-gained{
+      border:1px solid rgba(251,191,36,.65);
+      box-shadow:0 0 28px rgba(251,191,36,.35),0 16px 40px rgba(0,0,0,.5);
+      animation:ach-toast-in .55s cubic-bezier(.34,1.45,.64,1), ach-toast-gained-glow 2.8s ease-in-out infinite;
+    }
+    .ach-toast-gained::before{
+      background:linear-gradient(135deg,rgba(120,53,15,.55) 0%,rgba(15,40,30,.92) 45%,rgba(20,83,45,.35) 100%);
+    }
+    .ach-toast-lost{
+      border:1px solid rgba(167,139,250,.45);
+      box-shadow:0 0 20px rgba(167,139,250,.2),0 16px 40px rgba(0,0,0,.5);
+    }
+    .ach-toast-lost::before{
+      background:linear-gradient(135deg,rgba(49,46,129,.45) 0%,rgba(15,40,30,.94) 60%,rgba(69,10,10,.25) 100%);
+    }
+    .ach-toast-shine{
+      position:absolute;top:0;left:-120%;width:60%;height:100%;
+      background:linear-gradient(105deg,transparent,rgba(255,255,255,.14),transparent);
+      transform:skewX(-18deg);pointer-events:none;
+      animation:ach-toast-shine 2.2s ease-in-out .35s 1;
+    }
+    .ach-toast-inner{
+      position:relative;z-index:1;display:flex;gap:14px;align-items:center;
+      padding:14px 14px 12px 16px;
+    }
+    .ach-toast-badge{
+      width:54px;height:54px;border-radius:50%;flex-shrink:0;
+      display:flex;align-items:center;justify-content:center;
+      font-size:1.75rem;line-height:1;
+      box-shadow:inset 0 0 14px rgba(255,255,255,.18);
+      animation:ach-toast-badge-pop .65s cubic-bezier(.34,1.45,.64,1);
+    }
+    .ach-toast-badge-common{
+      background:radial-gradient(circle at 35% 30%,#86efac,#14532d 70%);
+      border:2px solid #4ade80;filter:drop-shadow(0 0 8px rgba(74,222,128,.45));
+    }
+    .ach-toast-badge-rare{
+      background:radial-gradient(circle at 35% 30%,#c4b5fd,#312e81 70%);
+      border:2px solid #a78bfa;filter:drop-shadow(0 0 10px rgba(167,139,250,.55));
+    }
+    .ach-toast-badge-legendary{
+      background:radial-gradient(circle at 35% 30%,#fde68a,#92400e 65%);
+      border:2px solid #fbbf24;filter:drop-shadow(0 0 14px rgba(251,191,36,.65));
+    }
+    .ach-toast-badge-lost{
+      background:radial-gradient(circle at 35% 30%,#94a3b8,#1e293b 70%);
+      border:2px solid rgba(148,163,184,.45);filter:grayscale(.35) opacity(.85);
+      animation:ach-toast-badge-pop .65s cubic-bezier(.34,1.45,.64,1), ach-toast-badge-dim 2s ease-in-out infinite;
+    }
+    .ach-toast-body{flex:1;min-width:0}
+    .ach-toast-chip{
+      display:inline-block;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+      padding:3px 8px;border-radius:999px;margin-bottom:6px;
+    }
+    .ach-toast-gained .ach-toast-chip{
+      color:#78350f;background:rgba(251,191,36,.25);border:1px solid rgba(251,191,36,.45);
+    }
+    .ach-toast-lost .ach-toast-chip{
+      color:#ddd6fe;background:rgba(167,139,250,.18);border:1px solid rgba(167,139,250,.35);
+    }
+    .ach-toast-title{font-weight:700;font-size:.92rem;color:#f8fafc;line-height:1.3;margin:0 0 4px}
+    .ach-toast-gained .ach-toast-title{color:#fef3c7}
+    .ach-toast-lost .ach-toast-title{color:#fce7f3}
+    .ach-toast-name{font-size:.84rem;color:#e2e8f0;font-weight:600;margin:0 0 6px}
+    .ach-toast-list{
+      margin:0 0 6px;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;
+    }
+    .ach-toast-list li{
+      font-size:.8rem;color:#cbd5e1;display:flex;align-items:center;gap:6px;line-height:1.3;
+    }
+    .ach-toast-list li span:first-child{font-size:1rem;line-height:1;flex-shrink:0}
+    .ach-toast-sub{
+      font-size:.76rem;color:#94a3b8;margin:0;display:flex;align-items:center;gap:5px;
+    }
+    .ach-toast-sub::before{content:'📊';font-size:.85rem}
+    .ach-toast-close{
+      position:absolute;top:8px;right:8px;z-index:2;
+      width:26px;height:26px;padding:0;border:none;border-radius:8px;cursor:pointer;
+      background:rgba(8,18,14,.45);color:#94a3b8;font-size:1.15rem;line-height:1;font-family:inherit;
+    }
+    .ach-toast-close:hover{color:#f8fafc;background:rgba(8,18,14,.75)}
+    .ach-toast-bar{
+      position:relative;z-index:1;height:3px;background:rgba(8,18,14,.55);overflow:hidden;
+    }
+    .ach-toast-bar-fill{
+      height:100%;width:100%;transform-origin:left center;
+      animation:ach-toast-timer linear forwards;
+    }
+    .ach-toast-gained .ach-toast-bar-fill{background:linear-gradient(90deg,#f59e0b,#fde047)}
+    .ach-toast-lost .ach-toast-bar-fill{background:linear-gradient(90deg,#7c3aed,#c4b5fd)}
+    .ach-toast.leaving{animation:ach-toast-out .35s ease forwards}
+    @keyframes ach-toast-in{
+      from{opacity:0;transform:translateX(40px) scale(.88)}
+      to{opacity:1;transform:translateX(0) scale(1)}
+    }
+    @keyframes ach-toast-out{
+      from{opacity:1;transform:translateX(0) scale(1)}
+      to{opacity:0;transform:translateX(32px) scale(.92)}
+    }
+    @keyframes ach-toast-gained-glow{
+      0%,100%{box-shadow:0 0 22px rgba(251,191,36,.28),0 16px 40px rgba(0,0,0,.5)}
+      50%{box-shadow:0 0 34px rgba(251,191,36,.5),0 0 48px rgba(245,158,11,.2),0 16px 40px rgba(0,0,0,.5)}
+    }
+    @keyframes ach-toast-shine{
+      0%{left:-120%}
+      100%{left:140%}
+    }
+    @keyframes ach-toast-badge-pop{
+      0%{transform:scale(.4) rotate(-12deg);opacity:0}
+      65%{transform:scale(1.12) rotate(4deg);opacity:1}
+      100%{transform:scale(1) rotate(0);opacity:1}
+    }
+    @keyframes ach-toast-badge-dim{
+      0%,100%{opacity:.85;transform:scale(1)}
+      50%{opacity:.65;transform:scale(.96)}
+    }
+    @keyframes ach-toast-timer{
+      from{transform:scaleX(1)}
+      to{transform:scaleX(0)}
+    }
   </style>
 </head>
 <body>
@@ -374,7 +559,7 @@
         </div>
       </div>
       <div class="header-nav">
-        <button type="button" class="btn-next-task" id="btnNextTask" disabled title="Доступно после зачёта текущего задания">Задание 2 →</button>
+        <button type="button" class="btn-next-task" id="btnNextTask" disabled title="Доступно после зачёта текущего задания">Следующее задание →</button>
         <div class="progress-pill">Задание <b id="taskNum">1</b> из <b id="taskTotal">1</b></div>
       </div>
     </header>
@@ -385,6 +570,7 @@
     </section>
 
     <div class="workspace">
+      <div class="workspace-split" id="workspaceSplit">
       <div class="panel panel-editor" id="panelEditor">
         <div class="panel-head panel-head-editor">
           <span>Ваш код из PL/SQL Developer</span>
@@ -406,6 +592,8 @@
         </div>
       </div>
 
+      <div class="workspace-resizer" id="workspaceResizer" role="separator" aria-orientation="vertical" aria-label="Изменить ширину панелей" tabindex="0"></div>
+
       <div class="panel panel-output">
         <div class="panel-head panel-head-tabs">
           <button type="button" class="tab-btn active" data-tab="checklist" id="tabChecklist">
@@ -419,6 +607,7 @@
         <div class="output-body tab-pane" id="outputBody" hidden>
           <p style="color:#64748b;font-style:italic">Вставьте код и нажмите «Проверить».</p>
         </div>
+      </div>
       </div>
 
       <div class="bottom-row">
@@ -464,6 +653,7 @@
   </div>
 
   <div id="achFloatTip" class="ach-float-tip" aria-hidden="true"></div>
+  <div id="achToastStack" class="ach-toast-stack" aria-live="polite" aria-atomic="false"></div>
 
   <div id="identRoot" class="onboarding-root" aria-modal="true" role="dialog">
     <div class="onboarding-dim"></div>
@@ -505,8 +695,10 @@
     var resultsByTask = {};
     var activeTab = 'checklist';
     var previewTimer = null;
+    var valTimer = null;
     var DRAFT_KEY = 'plsql_trainer_v1_draft';
     var PROGRESS_KEY = 'plsql_trainer_v1_progress';
+    var STUDENT_KEY = 'plsql_trainer_v1_student';
     var trainerReady = false;
 
     taskTotal.textContent = String(TASKS.length);
@@ -641,6 +833,11 @@
       lineNums.textContent = Array.from({length:n},function(_,i){return i+1;}).join('\n');
     }
 
+    function scheduleValidation(){
+      clearTimeout(valTimer);
+      valTimer = setTimeout(updateValidation, 60);
+    }
+
     function updateValidation(){
       var code = sqlInput.value;
       if (!code.trim()){
@@ -693,13 +890,12 @@
         return;
       }
       btnNextTask.hidden = false;
-      var nextNum = taskStep + 2;
-      btnNextTask.textContent = 'Задание ' + nextNum + ' →';
+      btnNextTask.textContent = 'Следующее задание →';
       var ready = isTaskPassed(TASKS[taskStep].id);
       btnNextTask.disabled = !ready;
       btnNextTask.classList.toggle('ready', ready);
       btnNextTask.title = ready
-        ? 'Перейти к заданию ' + nextNum
+        ? 'Перейти к следующему заданию'
         : 'Доступно после зачёта текущего задания';
     }
 
@@ -840,6 +1036,88 @@
       document.getElementById('modalDetails').classList.add('visible');
     }
 
+    function getEarnedAchIds(report){
+      return (report.achievements || []).map(function(a){ return a.id; });
+    }
+
+    function removeAchToast(el){
+      if (!el || el.classList.contains('leaving')) return;
+      el.classList.add('leaving');
+      setTimeout(function(){
+        if (el.parentNode) el.parentNode.removeChild(el);
+      }, 300);
+    }
+
+    function showAchToast(kind, achs, delayMs){
+      delayMs = delayMs || 0;
+      if (!achs || !achs.length) return;
+      setTimeout(function(){
+        var stack = document.getElementById('achToastStack');
+        var gained = kind === 'gained';
+        var multiple = achs.length > 1;
+        var duration = gained ? (multiple ? 8500 : 7000) : (multiple ? 7000 : 5500);
+        var tier = multiple ? 'legendary' : ((achs[0] && achs[0].rarity) || 'common');
+        var badgeEmoji = multiple
+          ? (gained ? '🎉' : '💪')
+          : ((achs[0] && achs[0].emoji) || (gained ? '🏆' : '💪'));
+        var title = gained
+          ? (multiple ? 'Вы получили несколько ачивок!' : 'Вы получили новую ачивку!')
+          : (multiple ? 'Вы потеряли несколько ачивок, но не сдавайтесь' : 'Вы потеряли ачивку, но не сдавайтесь');
+        var chip = gained
+          ? (multiple ? '✨ Новые ачивки' : '✨ Новая ачивка')
+          : (multiple ? '💜 Не сдавайтесь' : '💜 Не сдавайтесь');
+
+        var bodyExtra = '';
+        if (multiple){
+          bodyExtra = '<ul class="ach-toast-list">' +
+            achs.map(function(a){
+              return '<li><span>' + esc(a.emoji || '⭐') + '</span><span>' + esc(a.title || a.id) + '</span></li>';
+            }).join('') +
+            '</ul>';
+        } else if (achs[0] && achs[0].title){
+          bodyExtra = '<p class="ach-toast-name">' + esc(achs[0].title) + '</p>';
+        }
+        if (gained){
+          bodyExtra += '<p class="ach-toast-sub">Подробнее смотрите в «Мой отчёт»</p>';
+        }
+
+        var toast = document.createElement('div');
+        toast.className = 'ach-toast ach-toast-' + (gained ? 'gained' : 'lost');
+        toast.innerHTML =
+          (gained ? '<div class="ach-toast-shine"></div>' : '') +
+          '<div class="ach-toast-inner">' +
+            '<div class="ach-toast-badge ach-toast-badge-' + (gained ? esc(tier) : 'lost') + '">' +
+              esc(badgeEmoji) +
+            '</div>' +
+            '<div class="ach-toast-body">' +
+              '<span class="ach-toast-chip">' + chip + '</span>' +
+              '<div class="ach-toast-title">' + title + '</div>' +
+              bodyExtra +
+            '</div>' +
+          '</div>' +
+          '<div class="ach-toast-bar"><div class="ach-toast-bar-fill" style="animation-duration:' + duration + 'ms"></div></div>' +
+          '<button type="button" class="ach-toast-close" aria-label="Закрыть">×</button>';
+        toast.querySelector('.ach-toast-close').onclick = function(){ removeAchToast(toast); };
+        stack.appendChild(toast);
+        setTimeout(function(){ removeAchToast(toast); }, duration);
+      }, delayMs);
+    }
+
+    function notifyAchievementChanges(beforeIds, afterReport){
+      var afterIds = getEarnedAchIds(afterReport);
+      var achMap = History.ACHIEVEMENTS;
+      var gained = [];
+      var lost = [];
+      afterIds.forEach(function(id){
+        if (beforeIds.indexOf(id) === -1 && achMap[id]) gained.push(achMap[id]);
+      });
+      beforeIds.forEach(function(id){
+        if (afterIds.indexOf(id) === -1 && achMap[id]) lost.push(achMap[id]);
+      });
+      if (gained.length) showAchToast('gained', gained, 0);
+      if (lost.length) showAchToast('lost', lost, gained.length ? 220 : 0);
+    }
+
     function checkCode(){
       if (!trainerReady || identOpen()) return;
       var task = TASKS[taskStep];
@@ -849,8 +1127,10 @@
         switchTab('result');
         return;
       }
+      var achBefore = getEarnedAchIds(History.report(TASKS));
       var result = Checker.run(code, task);
       History.addAttempt(task.id, result, code);
+      notifyAchievementChanges(achBefore, History.report(TASKS));
       resultsByTask[task.id] = result;
       renderResult(result);
       switchTab('result');
@@ -972,7 +1252,7 @@
 
     sqlInput.addEventListener('input', function(){
       updateLineNums();
-      updateValidation();
+      scheduleValidation();
       schedulePreviewAndSave();
     });
     sqlInput.addEventListener('scroll', syncEditorScroll);
@@ -1014,6 +1294,41 @@
 
     document.getElementById('reportContent').addEventListener('scroll', hideAchFloatTip);
 
+    var workspaceSplit = document.getElementById('workspaceSplit');
+    var workspaceResizer = document.getElementById('workspaceResizer');
+    var splitDragging = false;
+    function clampSplit(pct){ return Math.max(20, Math.min(80, pct)); }
+    function setSplit(pct){
+      workspaceSplit.style.setProperty('--split-editor', clampSplit(pct) + '%');
+    }
+    workspaceResizer.addEventListener('mousedown', function(e){
+      if (window.matchMedia('(max-width:860px)').matches) return;
+      e.preventDefault();
+      splitDragging = true;
+      workspaceResizer.classList.add('dragging');
+      document.body.style.cursor = 'col-resize';
+      document.body.style.userSelect = 'none';
+    });
+    document.addEventListener('mousemove', function(e){
+      if (!splitDragging) return;
+      var rect = workspaceSplit.getBoundingClientRect();
+      setSplit(((e.clientX - rect.left) / rect.width) * 100);
+    });
+    function stopSplitDrag(){
+      if (!splitDragging) return;
+      splitDragging = false;
+      workspaceResizer.classList.remove('dragging');
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    }
+    document.addEventListener('mouseup', stopSplitDrag);
+    workspaceResizer.addEventListener('keydown', function(e){
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
+      e.preventDefault();
+      var cur = parseFloat(getComputedStyle(workspaceSplit).getPropertyValue('--split-editor')) || 70;
+      setSplit(cur + (e.key === 'ArrowLeft' ? -2 : 2));
+    });
+
     var panelEditor = document.getElementById('panelEditor');
     var btnEditorFullscreen = document.getElementById('btnEditorFullscreen');
     function setEditorFullscreen(on){
@@ -1052,6 +1367,31 @@
       var nameEl = document.getElementById('identName');
       var errEl = document.getElementById('identError');
       var btn = document.getElementById('identBtn');
+
+      function startTrainer(name){
+        Report.initSession(name, IDENT_GROUP);
+        try {
+          localStorage.setItem(STUDENT_KEY, JSON.stringify({ name: name, group: IDENT_GROUP }));
+        } catch (e) {}
+        trainerReady = true;
+        root.classList.remove('is-open');
+        document.body.style.overflow = '';
+        setTrainerLocked(false);
+        updateReportBtn();
+        if (History.markTrainerStarted()){
+          var ach = History.getAchievement('analyst_path');
+          if (ach) setTimeout(function(){ showAchToast('gained', [ach], 0); }, 450);
+        }
+      }
+
+      try {
+        var saved = JSON.parse(localStorage.getItem(STUDENT_KEY) || 'null');
+        if (saved && saved.name && saved.name.trim()){
+          startTrainer(saved.name.trim());
+          return;
+        }
+      } catch (e) {}
+
       root.classList.add('is-open');
       document.body.style.overflow = 'hidden';
       setTrainerLocked(true);
@@ -1059,12 +1399,7 @@
       function submit(){
         var nm = nameEl.value.trim();
         if (!nm){ errEl.style.display = 'block'; return; }
-        Report.initSession(nm, IDENT_GROUP);
-        trainerReady = true;
-        root.classList.remove('is-open');
-        document.body.style.overflow = '';
-        setTrainerLocked(false);
-        updateReportBtn();
+        startTrainer(nm);
       }
       btn.addEventListener('click', submit);
       nameEl.addEventListener('keydown', function(e){ if (e.key === 'Enter') submit(); });
