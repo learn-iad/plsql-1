@@ -102,7 +102,7 @@ var SqlUtil = (function () {
     [/\bNUMBR\b/i, 'NUMBR → NUMBER']
   ];
 
-  var SQL_START = /^(CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|COMMIT|TRUNCATE|GRANT|REVOKE|SET|BEGIN|DECLARE|EXEC|EXECUTE)\b/i;
+  var SQL_START = /^(CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|COMMIT|TRUNCATE|GRANT|REVOKE|SET|BEGIN|DECLARE|EXEC|EXECUTE|MERGE)\b/i;
 
   function validateStatement(stmt) {
     var issues = [];
@@ -184,8 +184,79 @@ var SqlUtil = (function () {
 
   function blockHasOwnComment(block) {
     if (/\/\*[\s\S]*?\*\//.test(block)) return true;
-    var first = block.split('\n').filter(function (l) { return l.trim(); })[0];
-    return first && /^--/.test(first.trim());
+    var lines = block.split('\n').filter(function (l) { return l.trim(); });
+    var first = lines[0];
+    if (first && /^--/.test(first.trim())) return true;
+    return lines.some(function (l) {
+      var t = l.trim();
+      return t && !/^--/.test(t) && /--\s+\S/.test(l);
+    });
+  }
+
+  function countDefaultFields(norm, fields) {
+    return fields.filter(function (f) {
+      return new RegExp('MODIFY[\\s\\S]{0,900}\\b' + f + '\\b[\\s\\S]{0,80}\\bDEFAULT\\b', 'i').test(norm) ||
+        new RegExp('\\bALTER\\s+TABLE\\s+[\\w.]+\\s+MODIFY\\s+' + f + '\\s+DEFAULT\\b', 'i').test(norm);
+    });
+  }
+
+  function hasInsertBeginDateSep2025(code, norm) {
+    if (/\bto_date\s*\(\s*'01[\.\/-]09[\.\/-]2025'/i.test(code)) return true;
+    if (/\bdate\s+'2025-09-01'/i.test(norm)) return true;
+    if (/\b01-SEP-2025\b/i.test(code)) return true;
+    if (/\bbegin_date\b/i.test(norm) && /\b01[\.\/-]09[\.\/-]2025\b/i.test(code)) return true;
+    return false;
+  }
+
+  function hasAnyUpdateAlias(norm) {
+    var re = /\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./gi;
+    return re.test(norm);
+  }
+
+  function hasAnyDeleteAlias(norm) {
+    var re = /\bDELETE\s+FROM\s+[\w.]+\s+(\w+)\b/gi;
+    var m;
+    while ((m = re.exec(norm))) {
+      if (!isSqlAliasWord(m[1])) continue;
+      if (new RegExp('\\b' + m[1] + '\\.').test(norm)) return true;
+    }
+    return false;
+  }
+
+  function isSqlAliasWord(word) {
+    return word && !/^(WHERE|ORDER|GROUP|HAVING|UNION|JOIN|INNER|LEFT|RIGHT|FULL|CROSS|ON|AND|OR|SET|VALUES|SELECT|BY|ASC|DESC|FETCH|OFFSET|START|CONNECT|PIVOT|UNPIVOT)$/i.test(word);
+  }
+
+  function hasAnySelectAlias(norm) {
+    var re = /\bFROM\s+[\w.]+\s+(\w+)\b/gi;
+    var m;
+    while ((m = re.exec(norm))) {
+      if (!isSqlAliasWord(m[1])) continue;
+      if (new RegExp('\\b' + m[1] + '\\.').test(norm)) return true;
+    }
+    re = /\bFROM\s*\([\s\S]*?\)\s+(\w+)\b/gi;
+    while ((m = re.exec(norm))) {
+      if (!isSqlAliasWord(m[1])) continue;
+      if (new RegExp('\\b' + m[1] + '\\.').test(norm)) return true;
+    }
+    return false;
+  }
+
+  function hasTop50Limit(code, norm) {
+    if (/\bfetch\s+(?:first|next)\s+50\s+rows\s+only\b/i.test(norm)) return true;
+    if (/\brownum\s*<=?\s*50\b/i.test(norm)) return true;
+    if (/\boffset\s+\d+\s+rows\s+fetch\s+next\s+50\s+rows\s+only\b/i.test(norm)) return true;
+    return /\bselect\b[\s\S]{0,300}\b50\b/i.test(norm) &&
+      /\border\s+by\b/i.test(norm) &&
+      /\b(fetch|rownum|offset|top)\b/i.test(norm);
+  }
+
+  function hasSelect10Percent(code, norm) {
+    if (/\bfetch\s+first\s+10\s+percent\s+rows\s+only\b/i.test(norm)) return true;
+    if (/\bsample\s*\(\s*10\s*\)/i.test(norm)) return true;
+    if (/\brownum\s*<=?\s*ceil\s*\(/i.test(norm)) return true;
+    if (/\brownum\s*<=?\s*\(?\s*select\s+count/i.test(norm) && /0\.1|10\s*percent|\*\s*0\.1/i.test(norm)) return true;
+    return /\b10\s*%\b/.test(code) && /\bSELECT\b/i.test(code);
   }
 
   function blockHasAdjacentComment(blocks, idx) {
@@ -320,6 +391,13 @@ var SqlUtil = (function () {
     posToLine: posToLine,
     hasComments: hasComments,
     hasBlockComments: hasBlockComments,
+    countDefaultFields: countDefaultFields,
+    hasInsertBeginDateSep2025: hasInsertBeginDateSep2025,
+    hasAnyUpdateAlias: hasAnyUpdateAlias,
+    hasAnyDeleteAlias: hasAnyDeleteAlias,
+    hasAnySelectAlias: hasAnySelectAlias,
+    hasTop50Limit: hasTop50Limit,
+    hasSelect10Percent: hasSelect10Percent,
     adjacentCommentMatch: adjacentCommentMatch,
     detectSchema: detectSchema,
     stmtMatch: stmtMatch,
