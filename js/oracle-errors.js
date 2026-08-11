@@ -47,7 +47,7 @@ var OracleErrors = (function () {
       found.push(CATALOG.DELETE_INSTEAD_OF_DROP);
     }
 
-    if (/\bUPDATE\s+(?!(\w+\.\w+\s+\w+|(\w+)\s+\2\b))\w+\s+SET/i.test(norm)) {
+    if (/\bUPDATE\s+(?!(\w+\.\w+\s+\w+))\S+\s+SET/i.test(norm) && !SqlUtil.hasAnyUpdateAlias(norm)) {
       found.push(CATALOG.NO_ALIAS_UPDATE);
     }
 
