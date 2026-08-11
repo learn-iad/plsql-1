@@ -91,9 +91,7 @@ var TASKS = [
         check: function (code) {
           var fields = ['end_date', 'auto_fix_comm', 'is_ichp', 'is_filial', 'top_filial', 'in_premium', 'ichp_old', 'idrappeltype', 'lnetwork_develop'];
           var norm = SqlUtil.normalize(code);
-          var found = fields.filter(function (f) {
-            return new RegExp('\\bALTER\\s+TABLE\\s+[\\w.]+\\s+MODIFY\\s+' + f + '\\s+DEFAULT\\b', 'i').test(norm);
-          });
+          var found = SqlUtil.countDefaultFields(norm, fields);
           return { pass: found.length >= 7, detail: found.length + '/9 полей с DEFAULT' };
         }
       },
@@ -106,7 +104,7 @@ var TASKS = [
           var ok = /\bINSERT\s+INTO\s+[\w.]*AGENTS\b/i.test(norm) &&
             /edu\.seqEduAgents\.nextval/i.test(code) &&
             /\bnrating\b/i.test(norm) && /\b99\b/.test(norm) &&
-            (/\bbegin_date\b/i.test(norm) && (/\b01[\.\/-]09[\.\/-]2025\b/i.test(code) || /\b01-SEP-2025\b/i.test(code) || /\bto_date\s*\(\s*'01\.09\.2025'/i.test(code)));
+            SqlUtil.hasInsertBeginDateSep2025(code, norm);
           return { pass: ok };
         }
       },
@@ -157,9 +155,8 @@ var TASKS = [
         hint: 'UPDATE agents ag SET ag.col … ; FROM AGENTS ag',
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var upd = /\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(norm);
-          var selM = norm.match(/\bSELECT\b[\s\S]*?\bFROM\s+[\w.]+\s+(\w+)\b/i);
-          var sel = selM && new RegExp('\\b' + selM[1] + '\\.').test(norm);
+          var upd = SqlUtil.hasAnyUpdateAlias(norm);
+          var sel = SqlUtil.hasAnySelectAlias(norm);
           return { pass: upd && sel, detail: 'UPDATE alias: ' + upd + ', SELECT alias: ' + sel };
         }
       },
@@ -173,9 +170,7 @@ var TASKS = [
           var cols = ['agent', 'sname', 'nrating', 'idsupervisor', 'top_filial'];
           var allCols = cols.every(function (c) { return new RegExp('\\b' + c + '\\b', 'i').test(norm); });
           var order = /\border\s+by\b[\s\S]*\bcontract_date\b/i.test(norm);
-          var top50 = /\bfetch\s+first\s+50\s+rows\s+only\b/i.test(norm) ||
-            /\brownum\s*<=?\s*50\b/i.test(norm) ||
-            (/\bselect\b[\s\S]{0,200}\b50\b/i.test(norm) && /\border\s+by\b/i.test(norm));
+          var top50 = SqlUtil.hasTop50Limit(code, norm);
           return { pass: allCols && order && top50, detail: [allCols, order, top50].join('/') };
         }
       },
@@ -306,10 +301,7 @@ var TASKS = [
           var cols = ['partner', 'name', 'man', 'agent', 'admdate'];
           var allCols = cols.every(function (c) { return new RegExp('\\b' + c + '\\b', 'i').test(norm); });
           var order = /\border\s+by\b[\s\S]*\badmdate\b/i.test(norm) && /\bdesc\b/i.test(norm);
-          var pct = /\bfetch\s+first\s+10\s+percent\s+rows\s+only\b/i.test(norm) ||
-            /\bsample\s*\(\s*10\s*\)/i.test(norm) ||
-            /\brownum\s*<=?\s*ceil\s*\(\s*[\w.]+\s*\*\s*0\.1\s*\)/i.test(norm) ||
-            (/\b10\s*%\b/.test(code) && /\bSELECT\b/i.test(norm));
+          var pct = SqlUtil.hasSelect10Percent(code, norm);
           return { pass: allCols && order && pct, detail: [allCols, order, pct].join('/') };
         }
       },
@@ -331,11 +323,12 @@ var TASKS = [
         hint: 'FROM partners p; INSERT INTO schema.partners …',
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var selM = norm.match(/\bSELECT\b[\s\S]*?\bFROM\s+[\w.]+\s+(\w+)\b/i);
-          var sel = selM && new RegExp('\\b' + selM[1] + '\\.').test(norm);
+          var sel = SqlUtil.hasAnySelectAlias(norm);
           var ctasM = norm.match(/\bFROM\s+edu\.partners\s+(\w+)\b/i);
           var ctas = ctasM && new RegExp('\\b' + ctasM[1] + '\\.').test(norm);
-          return { pass: sel || ctas, detail: 'SELECT alias: ' + sel + ', CTAS alias: ' + ctas };
+          var insM = norm.match(/\bINSERT\s+INTO\s+[\w.]*partners\s+(\w+)\b/i);
+          var ins = insM && new RegExp('\\b' + insM[1] + '\\.').test(norm);
+          return { pass: sel || ctas || ins, detail: 'SELECT alias: ' + sel + ', CTAS alias: ' + ctas + ', INSERT alias: ' + ins };
         }
       }
     ],
@@ -437,7 +430,8 @@ var TASKS = [
         weight: 12,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bINSERT\s+INTO\s+[\w.]*InsuranceTypes\b/i.test(norm) &&
+          var ok = (/\bINSERT\s+INTO\s+[\w.]*InsuranceTypes\b/i.test(norm) ||
+              (/\bINSERT\s+ALL\b/i.test(norm) && /\bINTO\s+[\w.]*InsuranceTypes\b/i.test(norm))) &&
             /\bSELECT\b[\s\S]*\bFROM\s+i3\.products\b/i.test(norm);
           return { pass: ok };
         }
@@ -472,7 +466,13 @@ var TASKS = [
           var prod = prodM && new RegExp('\\b' + prodM[1] + '\\.').test(norm);
           var ccM = norm.match(/\bFROM\s+edu\.claim_claims\s+(\w+)\b/i);
           var cc = ccM && new RegExp('\\b' + ccM[1] + '\\.').test(norm);
-          return { pass: prod && cc, detail: 'products alias: ' + prod + ', claim_claims alias: ' + cc };
+          var prodQual = /\bi3\.products\s*\.\s*\w+/i.test(code);
+          var ccQual = /\bedu\.claim_claims\s*\.\s*\w+/i.test(code) ||
+            /\bclaim_claims\s*\.\s*\*/i.test(norm);
+          return {
+            pass: prod || prodQual || cc || ccQual,
+            detail: 'products alias: ' + (prod || prodQual) + ', claim_claims alias: ' + (cc || ccQual)
+          };
         }
       }
     ],
@@ -514,7 +514,10 @@ var TASKS = [
           var norm = SqlUtil.normalize(code);
           var ok = /\bUPDATE\s+[\w.]*agents\b/i.test(norm) &&
             /\bagency\s*=\s*1000\b/i.test(norm) &&
-            /\bcontract_date\b/i.test(norm);
+            (/\bcontract_date\b/i.test(norm) ||
+              /\bmax\s*\(\s*contract_date\s*\)/i.test(norm) ||
+              /\brow_number\s*\(\s*\)\s*over\s*\(\s*order\s+by\s+contract_date/i.test(norm) ||
+              /\brank\s*\(\s*\)\s*over\s*\(\s*order\s+by\s+contract_date/i.test(norm));
           return { pass: ok };
         }
       },
@@ -540,8 +543,8 @@ var TASKS = [
           var norm = SqlUtil.normalize(code);
           var hasCreate = /\bCREATE\s+TABLE\s+\w+\.\w+/i.test(norm);
           var deletes = SqlUtil.countMatches(code, /\bDELETE\s+FROM\b/gi);
-          var hasHalf = /50\s*%|\/\s*2|половин|half/i.test(code);
-          var hasTenth = /10\s*%|десят/i.test(code);
+          var hasHalf = /50\s*%|\/\s*2|половин|half|count\s*\(\s*\*\s*\)\s*\/\s*2/i.test(code);
+          var hasTenth = /10\s*%|десят|count\s*\(\s*\*\s*\)\s*\/\s*10|mod\s*\(/i.test(code);
           var ok = hasCreate && deletes >= 3 && hasHalf && hasTenth;
           return { pass: ok, detail: 'CREATE: ' + hasCreate + ', DELETE×' + deletes };
         }
@@ -554,7 +557,12 @@ var TASKS = [
           var norm = SqlUtil.normalize(code);
           var ok = /\bDELETE\s+FROM\s+[\w.]*agents\b/i.test(norm) &&
             /\bedu\.partners\b/i.test(code) &&
-            /\bagent\b/i.test(norm) && /\bpartner\b/i.test(norm);
+            /\bagent\b/i.test(norm) && /\bpartner\b/i.test(norm) &&
+            (/\=\s*[\w.]+\.partner\b/i.test(norm) ||
+              /\bin\s*\(\s*select\b[\s\S]*\bpartner\b/i.test(norm) ||
+              /\bexists\b[\s\S]*\bpartner\b/i.test(norm) ||
+              /\bjoin\b[\s\S]*\bpartner\b/i.test(norm) ||
+              /\bany\s*\(\s*select\b[\s\S]*\bpartner\b/i.test(norm));
           return { pass: ok };
         }
       },
@@ -564,9 +572,8 @@ var TASKS = [
         weight: 10,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var upd = /\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(norm);
-          var delM = norm.match(/\bDELETE\s+FROM\s+[\w.]+\s+(\w+)\b/i);
-          var del = delM && new RegExp('\\b' + delM[1] + '\\.').test(norm);
+          var upd = SqlUtil.hasAnyUpdateAlias(norm);
+          var del = SqlUtil.hasAnyDeleteAlias(norm);
           return { pass: upd && del, detail: 'UPDATE alias: ' + upd + ', DELETE alias: ' + del };
         }
       },
@@ -684,7 +691,7 @@ var TASKS = [
         hint: 'ROW_NUMBER(), DENSE_RANK() или MERGE — с комментарием.',
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bUPDATE\s+[\w.]*partners\b/i.test(norm) &&
+          var ok = (/\bUPDATE\s+[\w.]*partners\b/i.test(norm) || /\bMERGE\s+INTO\s+[\w.]*partners\b/i.test(norm)) &&
             /\bpartner\b/i.test(norm) &&
             (/\brow_number\b/i.test(norm) || /\bdense_rank\b/i.test(norm) ||
               /\brank\b/i.test(norm) || /\bmerge\b/i.test(norm) ||
@@ -709,9 +716,8 @@ var TASKS = [
         weight: 6,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var upd = /\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(norm);
-          var selM = norm.match(/\bFROM\s+[\w.]+\s+(\w+)\b/i);
-          var sel = selM && new RegExp('\\b' + selM[1] + '\\.').test(norm);
+          var upd = SqlUtil.hasAnyUpdateAlias(norm);
+          var sel = SqlUtil.hasAnySelectAlias(norm);
           return { pass: upd || sel, detail: 'UPDATE alias: ' + upd + ', SELECT alias: ' + sel };
         }
       }
