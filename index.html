@@ -193,6 +193,7 @@
       border-right:1px solid rgba(74,222,128,.08);overflow:hidden;white-space:pre;
       align-self:stretch;overflow-y:hidden;
     }
+    .line-nums .ln-hint{color:#fbbf24;font-weight:600}
     .sql-input{
       flex:1;resize:none;border:none;outline:none;padding:12px 14px;
       font-family:Consolas,monospace;font-size:13px;line-height:1.55;
@@ -850,13 +851,7 @@
       checklistBody.querySelectorAll('li[data-hint]').forEach(function(li){
         li.onmouseenter = function(){
           var ids = (li.getAttribute('data-failed-ids') || '').split(',').filter(Boolean);
-          var code = sqlInput.value;
-          var hint = {};
-          ids.forEach(function(id){
-            SqlUtil.locateCriterionLines(code, id).forEach(function(ln){ hint[ln] = true; });
-          });
-          checklistHintLines = hint;
-          updateValidation();
+          applyChecklistHint(ids);
         };
         li.onmouseleave = function(){
           checklistHintLines = null;
@@ -899,7 +894,32 @@
     function updateLineNums(){
       var lines = sqlInput.value.split('\n');
       var n = lines.length || 1;
-      lineNums.textContent = Array.from({length:n},function(_,i){return i+1;}).join('\n');
+      lineNums.innerHTML = Array.from({length:n}, function(_, i){
+        var ln = i + 1;
+        var cls = checklistHintLines && checklistHintLines[ln] ? ' class="ln-hint"' : '';
+        return '<span' + cls + '>' + ln + '</span>';
+      }).join('\n');
+    }
+
+    function scrollEditorToLine(lineNum){
+      if (!lineNum || lineNum < 1) return;
+      var style = window.getComputedStyle(sqlInput);
+      var lh = parseFloat(style.lineHeight) || 20;
+      var pad = parseFloat(style.paddingTop) || 12;
+      sqlInput.scrollTop = Math.max(0, (lineNum - 1) * lh + pad - sqlInput.clientHeight / 3);
+      syncEditorScroll();
+    }
+
+    function applyChecklistHint(failedIds){
+      var code = sqlInput.value;
+      var hint = {};
+      failedIds.forEach(function(id){
+        SqlUtil.locateCriterionLines(code, id).forEach(function(ln){ hint[ln] = true; });
+      });
+      checklistHintLines = hint;
+      updateValidation();
+      var first = Object.keys(hint).map(Number).sort(function(a,b){ return a-b; })[0];
+      if (first) scrollEditorToLine(first);
     }
 
     function scheduleValidation(){
@@ -912,6 +932,7 @@
       if (!code.trim()){
         codeBackdrop.innerHTML = '';
         valWarn.textContent = '';
+        updateLineNums();
         return;
       }
       var v = SqlUtil.validateCode(code);
@@ -932,6 +953,7 @@
       } else {
         valWarn.textContent = '';
       }
+      updateLineNums();
     }
 
     function syncEditorScroll(){

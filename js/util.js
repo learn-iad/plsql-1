@@ -322,85 +322,286 @@ var SqlUtil = (function () {
     });
   }
 
-  function locateCriterionLines(code, criterionId) {
+  function locateMissingAdjacentComment(code, stmtPred, commentRe) {
     var lines = {};
-    function mark(start, end) {
-      var a = posToLine(code, start);
-      var b = posToLine(code, end == null ? start : end);
+    splitStatementsDetailed(code).forEach(function (s) {
+      if (!stmtPred(s.text)) return;
+      if (commentRe.test(getAdjacentCommentText(code, s.start, s.end))) return;
+      var a = posToLine(code, s.start);
+      var b = posToLine(code, s.end);
       for (var ln = a; ln <= b; ln++) lines[ln] = true;
-    }
-    function markLines(startLn, endLn) {
-      for (var ln = startLn; ln <= endLn; ln++) lines[ln] = true;
-    }
-    var stmts = splitStatementsDetailed(code);
-    var id = criterionId;
+    });
+    return lines;
+  }
 
-    stmts.forEach(function (s) {
-      var sn = normalize(s.text);
-      if (id === 'create_agent' || id === 'schema_create_agent') {
-        if (/\bCREATE\s+TABLE\b/i.test(sn) && /\bAgent\b/i.test(s.text)) mark(s.start, s.end);
-      } else if (id === 'alter_birth') {
-        if (/\bALTER\s+TABLE\b/i.test(sn) && /\bdBirthDate\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'drop_not_delete') {
-        if (/\b(?:DROP|DELETE)\s+(?:TABLE\s+)?[\w.]*Agent\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'ctas_agents' || id === 'ctas_partners') {
-        if (/\bCREATE\s+TABLE\b/i.test(sn) && /\bSELECT\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'defaults') {
-        if (/\bALTER\s+TABLE\b/i.test(sn) && /\bMODIFY\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'insert_agent' || id === 'insert_partner') {
-        if (/\bINSERT\s+INTO\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'supervisor_alter') {
-        if (/\bALTER\s+TABLE\b/i.test(sn) && /\bidsupervisor\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'supervisor_update_all') {
-        if (/\bUPDATE\b/i.test(sn) && /\bidsupervisor\s*=\s*1000\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'supervisor_update_cond' || id === 'schema_second_update' || id === 'schema_update') {
-        if (/\bUPDATE\b/i.test(sn) && (/\bidsupervisor\s*=\s*2000\b/i.test(sn) || /\bagency\s*=\s*1000\b/i.test(sn))) {
-          mark(s.start, s.end);
-        }
-      } else if (id === 'aliases') {
-        if (/\bUPDATE\b/i.test(sn) && !/\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(sn)) mark(s.start, s.end);
-        if (/\bSELECT\b/i.test(sn) && !hasAnySelectAlias(sn)) mark(s.start, s.end);
-        if (/\bDELETE\s+FROM\b/i.test(sn) && !hasAnyDeleteAlias(sn)) mark(s.start, s.end);
-        if (/\bINSERT\s+INTO\b/i.test(sn) && !/\bINSERT\s+INTO\s+[\w.]+\s+\w+\s*\(/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'final_select' || id === 'select_fork_comment' || id === 'select_partners') {
-        if (/\bSELECT\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'update_agency' || id === 'delete_agents_match') {
-        if (/\b(?:UPDATE|DELETE)\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'create_and_deletes') {
-        if (/\b(?:CREATE\s+TABLE|DELETE\s+FROM)\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'schema_create' || id === 'schema_create_agent') {
-        if (/\bCREATE\s+TABLE\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'rollback_comment') {
-        if (/\b(?:DELETE|ROLLBACK)\b/i.test(sn)) mark(s.start, s.end);
-      } else if (id === 'merge_or_update') {
-        if (/\b(?:UPDATE|MERGE)\b/i.test(sn)) mark(s.start, s.end);
+  function locateBlocksMissingComments(code) {
+    var lines = {};
+    var blocks = splitCodeBlocks(code);
+    var sqlIdx = [];
+    blocks.forEach(function (b, i) {
+      if (blockHasSql(b)) sqlIdx.push(i);
+    });
+    var pos = 0;
+    sqlIdx.forEach(function (bi) {
+      if (blockHasAdjacentComment(blocks, bi)) return;
+      var b = blocks[bi];
+      var start = code.indexOf(b, pos);
+      if (start < 0) start = code.indexOf(b);
+      if (start < 0) return;
+      var a = posToLine(code, start);
+      var endPos = start + b.length;
+      var endLn = posToLine(code, endPos);
+      for (var ln = a; ln <= endLn; ln++) lines[ln] = true;
+      pos = endPos;
+    });
+    return lines;
+  }
+
+  function mergeLineMaps() {
+    var out = {};
+    for (var i = 0; i < arguments.length; i++) {
+      var src = arguments[i];
+      Object.keys(src).forEach(function (k) { out[k] = true; });
+    }
+    return out;
+  }
+
+  function stmtLines(code, s) {
+    var lines = {};
+    var a = posToLine(code, s.start);
+    var b = posToLine(code, s.end);
+    for (var ln = a; ln <= b; ln++) lines[ln] = true;
+    return lines;
+  }
+
+  function locateByStmt(code, pred) {
+    var lines = {};
+    splitStatementsDetailed(code).forEach(function (s) {
+      if (pred(s.text, normalize(s.text))) {
+        Object.assign(lines, stmtLines(code, s));
       }
     });
+    return lines;
+  }
 
-    if (id === 'comments') {
-      var blocks = splitCodeBlocks(code);
-      var sqlIdx = [];
-      blocks.forEach(function (b, i) {
-        if (blockHasSql(b)) sqlIdx.push(i);
+  var CRITERION_LOCATORS = {
+    comments: function (code) { return locateBlocksMissingComments(code); },
+    rollback_comment: function (code) {
+      return locateMissingAdjacentComment(code, function (s) {
+        return /\bDELETE\s+FROM\b/i.test(s);
+      }, /rollback|откат|commit|восстанов|вернуть/);
+    },
+    select_fork_comment: function (code) {
+      return locateMissingAdjacentComment(code, function (s) {
+        return /\bSELECT\b/i.test(s) && (/\bcontract_date\b/i.test(s) || /\badmdate\b/i.test(s) ||
+          /\bfetch\b/i.test(s) || /\brownum\b/i.test(s) || /\b10\s*percent\b/i.test(s));
+      }, /50|сорт|sort|fetch|rownum|строк|выборк|order|contract|10\s*%|sample|percent|процент|случайн|перв/);
+    },
+    distinct_comment: function (code) {
+      return locateMissingAdjacentComment(code, function (s) {
+        return /\bINSERT\b/i.test(s) && /\bi3\.products\b/i.test(s);
+      }, /distinct|ключ|key|primary|unique|i3\.products|products/);
+    },
+    delete_fork_comment: function (code) {
+      return locateMissingAdjacentComment(code, function (s) {
+        return /\bDELETE\s+FROM\b/i.test(s);
+      }, /50|10|половин|десят|rownum|percent|%/);
+    },
+    gaps_comment: function (code) {
+      return locateMissingAdjacentComment(code, function (s) {
+        return /\bUPDATE\b/i.test(s) && /\bpartner\b/i.test(s);
+      }, /25|дыр|gap|нумер|row_number|rank|dense_rank|все|all|запис/);
+    },
+    create_agent: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bAgent\b/i.test(t);
       });
-      var pos = 0;
-      sqlIdx.forEach(function (bi) {
-        if (blockHasAdjacentComment(blocks, bi)) return;
-        var b = blocks[bi];
-        var start = code.indexOf(b, pos);
-        if (start < 0) start = code.indexOf(b);
-        if (start >= 0) mark(start, start + b.length);
-        pos = start >= 0 ? start + b.length : pos;
+    },
+    schema_create_agent: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bAgent\b/i.test(t) && !/\bCREATE\s+TABLE\s+\w+\./i.test(n);
+      });
+    },
+    alter_birth: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bdBirthDate\b/i.test(n);
+      });
+    },
+    drop_not_delete: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\b(?:DROP|DELETE)\b/i.test(n) && /\bAgent\b/i.test(t);
+      });
+    },
+    ctas_agents: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bAGENTS\b/i.test(t) && /\bSELECT\b/i.test(n);
+      });
+    },
+    ctas_partners: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(t) && /\bSELECT\b/i.test(n);
+      });
+    },
+    ctas_partners_full: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(t) && /\bSELECT\b/i.test(n);
+      });
+    },
+    defaults: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bMODIFY\b/i.test(n);
+      });
+    },
+    insert_agent: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bINSERT\s+INTO\b/i.test(n) && /\bAGENTS\b/i.test(n);
+      });
+    },
+    insert_partner: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bINSERT\s+INTO\b/i.test(n) && /\bpartners\b/i.test(n);
+      });
+    },
+    supervisor_alter: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bidsupervisor\b/i.test(n);
+      });
+    },
+    supervisor_update_all: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bidsupervisor\s*=\s*1000\b/i.test(n);
+      });
+    },
+    supervisor_update_cond: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bidsupervisor\s*=\s*2000\b/i.test(n);
+      });
+    },
+    schema_second_update: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bidsupervisor\s*=\s*2000\b/i.test(n) &&
+          !RE_UPDATE_SCHEMA.test(n);
+      });
+    },
+    schema_create: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && !/\bCREATE\s+TABLE\s+\w+\./i.test(n);
+      });
+    },
+    schema_update: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bagency\s*=\s*1000\b/i.test(n) && !RE_UPDATE_SCHEMA.test(n);
+      });
+    },
+    aliases: function (code) {
+      var lines = {};
+      splitStatementsDetailed(code).forEach(function (s) {
+        var n = normalize(s.text);
+        var bad = (/\bUPDATE\b/i.test(n) && !/\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(n)) ||
+          (/\bSELECT\b/i.test(n) && !hasAnySelectAlias(n)) ||
+          (/\bDELETE\s+FROM\b/i.test(n) && !hasAnyDeleteAlias(n)) ||
+          (/\bINSERT\s+INTO\b/i.test(n) && !/\bINSERT\s+INTO\s+[\w.]+\s+\w+\s*\(/i.test(n) &&
+            !/\bFROM\s+[\w.]+\s+(\w+)\b/i.test(n));
+        if (bad) Object.assign(lines, stmtLines(code, s));
+      });
+      return lines;
+    },
+    final_select: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bSELECT\b/i.test(n) && /\bagent\b/i.test(n);
+      });
+    },
+    alter_agent: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(n) && /\bMODIFY\b/i.test(n);
+      });
+    },
+    delete_all: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bDELETE\s+FROM\b/i.test(n) && /\bpartners\b/i.test(n);
+      });
+    },
+    select_10pct: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bSELECT\b/i.test(n) && /\bpartners\b/i.test(n);
+      });
+    },
+    create_partnersCopy: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartnersCopy\b/i.test(n);
+      });
+    },
+    modify_text: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartnersCopy\b/i.test(n) && /\bMODIFY\b/i.test(n);
+      });
+    },
+    create_insuranceTypes: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bInsuranceTypes\b/i.test(t);
+      });
+    },
+    insert_all_5: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bINSERT\s+ALL\b/i.test(n) && /\bInsuranceTypes\b/i.test(n);
+      });
+    },
+    insert_products: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\b(?:INSERT|SELECT)\b/i.test(n) && /\bi3\.products\b/i.test(t);
+      });
+    },
+    truncate: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bTRUNCATE\s+TABLE\b/i.test(n) && /\bpartnersCopy\b/i.test(n);
+      });
+    },
+    update_agency: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bagents\b/i.test(n);
+      });
+    },
+    create_and_deletes: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\b(?:CREATE\s+TABLE|DELETE\s+FROM)\b/i.test(n);
+      });
+    },
+    delete_agents_match: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bDELETE\s+FROM\b/i.test(n) && /\bagents\b/i.test(n);
+      });
+    },
+    add_emergency_col: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(n) && /\bADD\b/i.test(n);
+      });
+    },
+    update_phone_mail: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bpartners\b/i.test(n);
+      });
+    },
+    drop_purge: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bDROP\s+TABLE\b/i.test(n);
+      });
+    },
+    insert_all_agents: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bINSERT\s+ALL\b/i.test(n) && /\bagents\b/i.test(n);
+      });
+    },
+    update_partner_gaps: function (code) {
+      return locateByStmt(code, function (t, n) {
+        return /\bUPDATE\b/i.test(n) && /\bpartners\b/i.test(n) && /\bpartner\b/i.test(n);
       });
     }
+  };
 
-    if (id === 'select_fork_comment') {
-      getSqlBlockLineRanges(code).forEach(function (r) {
-        var chunk = code.split('\n').slice(r.start - 1, r.end).join('\n');
-        if (/\bSELECT\b/i.test(chunk) && /\bcontract_date\b/i.test(chunk)) markLines(r.start, r.end);
-      });
-    }
-
+  function locateCriterionLines(code, criterionId) {
+    if (!code || !criterionId) return [];
+    var fn = CRITERION_LOCATORS[criterionId];
+    var lines = fn ? fn(code) : {};
     return Object.keys(lines).map(Number).sort(function (a, b) { return a - b; });
   }
 
