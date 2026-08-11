@@ -47,13 +47,13 @@ var OracleErrors = (function () {
       found.push(CATALOG.DELETE_INSTEAD_OF_DROP);
     }
 
-    if (/\bUPDATE\s+(?!(\w+\.\w+\s+\w+))\S+\s+SET/i.test(norm) && !SqlUtil.hasAnyUpdateAlias(norm)) {
+    if (/\bUPDATE\s+(?!(\w+\.\w+\s+(?:\w+\s+)?SET))\S+\s+SET/i.test(norm) && !SqlUtil.hasAnyUpdateAlias(norm)) {
       found.push(CATALOG.NO_ALIAS_UPDATE);
     }
 
-    if (ctx && ctx.missingSchema) {
+    if (ctx && ctx.missingSchema && ctx.missingSchema.length) {
       found.push(Object.assign({}, CATALOG.MISSING_SCHEMA, {
-        detail: 'Ожидалась схема'
+        detail: 'Ожидалась схема: ' + ctx.missingSchema.join('; ')
       }));
     }
 

@@ -146,6 +146,8 @@
     }
     .checklist-groups li.ok{border-color:rgba(74,222,128,.28);color:#d1fae5}
     .checklist-groups li.fail{color:#94a3b8}
+    .checklist-groups li.fail[data-hint]{cursor:help}
+    .checklist-groups li.fail[data-hint]:hover{border-color:rgba(251,191,36,.35);color:#fde68a}
     .checklist-groups .chk-icon{font-size:1.15rem;flex-shrink:0;width:1.5em;text-align:center}
     .checklist-groups li.ok .chk-icon{color:#4ade80}
     .tab-pane[hidden]{display:none}
@@ -175,6 +177,7 @@
       white-space:pre-wrap;word-wrap:break-word;color:#cbd5e1;
     }
     .code-backdrop .ln-invalid{background:rgba(239,68,68,.18);border-radius:2px}
+    .code-backdrop .ln-hint{background:rgba(251,191,36,.24);border-radius:2px;box-shadow:inset 0 0 0 1px rgba(251,191,36,.35)}
     .hl-kw{color:#7dd3fc;font-weight:600}
     .hl-str{color:#fbbf24}
     .hl-cmt{color:#64748b;font-style:italic}
@@ -734,6 +737,7 @@
     var activeTab = 'checklist';
     var previewTimer = null;
     var valTimer = null;
+    var checklistHintLines = null;
     var DRAFT_KEY = 'plsql_trainer_v1_draft';
     var PROGRESS_KEY = 'plsql_trainer_v1_progress';
     var STUDENT_KEY = 'plsql_trainer_v1_student';
@@ -809,8 +813,14 @@
       criteria.forEach(function(c){ byId[c.id] = c; });
       return getChecklistGroups(task).map(function(group){
         var items = group.ids.map(function(id){ return byId[id]; }).filter(Boolean);
-        var pass = items.length > 0 && items.every(function(c){ return c.pass; });
-        return { label: group.label, pass: pass };
+        var failed = items.filter(function(c){ return !c.pass; });
+        var pass = items.length > 0 && failed.length === 0;
+        return {
+          label: group.label,
+          pass: pass,
+          failedIds: failed.map(function(c){ return c.id; }),
+          hint: failed.map(function(c){ return c.hint || c.detail; }).filter(Boolean).join(' · ')
+        };
       });
     }
 
@@ -825,13 +835,34 @@
       var html = '<div class="checklist-header"><b>' + passed + '</b> из ' + total + ' блоков</div>';
       html += '<ul class="checklist-groups">';
       groups.forEach(function(g){
-        html += '<li class="' + (g.pass ? 'ok' : 'fail') + '">' +
+        var attrs = ' class="' + (g.pass ? 'ok' : 'fail') + '"';
+        if (!g.pass && g.failedIds && g.failedIds.length){
+          attrs += ' data-hint="1" data-failed-ids="' + esc(g.failedIds.join(',')) + '"';
+          if (g.hint) attrs += ' title="' + esc(g.hint) + '"';
+        }
+        html += '<li' + attrs + '>' +
           '<span class="chk-icon">' + (g.pass ? '✓' : '○') + '</span>' +
           '<span>' + esc(g.label) + '</span></li>';
       });
       html += '</ul>';
-      html += '<p class="checklist-hint">Обновляется при редактировании. «Проверить» — официальная попытка в историю.</p>';
+      html += '<p class="checklist-hint">Обновляется при редактировании. Наведите на ○ — подсветка строк в коде. «Проверить» — официальная попытка в историю.</p>';
       checklistBody.innerHTML = html;
+      checklistBody.querySelectorAll('li[data-hint]').forEach(function(li){
+        li.onmouseenter = function(){
+          var ids = (li.getAttribute('data-failed-ids') || '').split(',').filter(Boolean);
+          var code = sqlInput.value;
+          var hint = {};
+          ids.forEach(function(id){
+            SqlUtil.locateCriterionLines(code, id).forEach(function(ln){ hint[ln] = true; });
+          });
+          checklistHintLines = hint;
+          updateValidation();
+        };
+        li.onmouseleave = function(){
+          checklistHintLines = null;
+          updateValidation();
+        };
+      });
     }
 
     function renderChecklistEmpty(task){
@@ -886,8 +917,12 @@
       var v = SqlUtil.validateCode(code);
       var highlighted = SqlUtil.highlightSql(code);
       codeBackdrop.innerHTML = highlighted.map(function (hl, i) {
-        var cls = v.invalidLines[i + 1] ? ' class="ln-invalid"' : '';
-        return '<span' + cls + '>' + hl + '</span>';
+        var ln = i + 1;
+        var cls = [];
+        if (v.invalidLines[ln]) cls.push('ln-invalid');
+        if (checklistHintLines && checklistHintLines[ln]) cls.push('ln-hint');
+        var attr = cls.length ? ' class="' + cls.join(' ') + '"' : '';
+        return '<span' + attr + '>' + hl + '</span>';
       }).join('\n');
 
       if (v.problems.length){

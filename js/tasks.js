@@ -122,7 +122,7 @@ var TASKS = [
         weight: 6,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          return { pass: /\bUPDATE\s+[\w.]+\s+\w+\s+SET\b/i.test(norm) && /\bidsupervisor\s*=\s*1000\b/i.test(norm) };
+          return { pass: SqlUtil.RE_UPDATE_SET.test(norm) && /\bidsupervisor\s*=\s*1000\b/i.test(norm) };
         }
       },
       {
@@ -143,7 +143,7 @@ var TASKS = [
           var stmts = SqlUtil.splitStatements(code);
           var hit = stmts.some(function (s) {
             return /\bidsupervisor\s*=\s*2000\b/i.test(s) && /\bagent\s*<\s*500\b/i.test(s) &&
-              /\bUPDATE\s+\w+\.\w+\s+\w+\s+SET\b/i.test(SqlUtil.normalize(s));
+              SqlUtil.RE_UPDATE_SCHEMA.test(SqlUtil.normalize(s));
           });
           return { pass: hit };
         }
@@ -529,7 +529,7 @@ var TASKS = [
           var stmts = SqlUtil.splitStatements(code);
           var hit = stmts.some(function (s) {
             return /\bagency\s*=\s*1000\b/i.test(s) &&
-              /\bUPDATE\s+\w+\.\w+\s+\w+\s+SET\b/i.test(SqlUtil.normalize(s));
+              SqlUtil.RE_UPDATE_SCHEMA.test(SqlUtil.normalize(s));
           });
           return { pass: hit };
         }

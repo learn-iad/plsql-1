@@ -208,6 +208,9 @@ var SqlUtil = (function () {
     return false;
   }
 
+  var RE_UPDATE_SET = /\bUPDATE\s+[\w.]+\s+(?:\w+\s+)?SET\b/i;
+  var RE_UPDATE_SCHEMA = /\bUPDATE\s+\w+\.\w+\s+(?:\w+\s+)?SET\b/i;
+
   function hasAnyUpdateAlias(norm) {
     var re = /\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./gi;
     return re.test(norm);
@@ -296,6 +299,109 @@ var SqlUtil = (function () {
   function detectSchema(sql) {
     var m = sql.match(/\b(\w+)\.(?:Agent|AGENTS|agents)\b/i);
     return m ? m[1].toLowerCase() : null;
+  }
+
+  function getSqlBlockLineRanges(code) {
+    var lines = code.split('\n');
+    var ranges = [];
+    var blockStart = null;
+    lines.forEach(function (line, i) {
+      var ln = i + 1;
+      if (line.trim() === '') {
+        if (blockStart !== null) {
+          ranges.push({ start: blockStart, end: ln - 1 });
+          blockStart = null;
+        }
+      } else if (blockStart === null) {
+        blockStart = ln;
+      }
+    });
+    if (blockStart !== null) ranges.push({ start: blockStart, end: lines.length });
+    return ranges.filter(function (r) {
+      return blockHasSql(lines.slice(r.start - 1, r.end).join('\n'));
+    });
+  }
+
+  function locateCriterionLines(code, criterionId) {
+    var lines = {};
+    function mark(start, end) {
+      var a = posToLine(code, start);
+      var b = posToLine(code, end == null ? start : end);
+      for (var ln = a; ln <= b; ln++) lines[ln] = true;
+    }
+    function markLines(startLn, endLn) {
+      for (var ln = startLn; ln <= endLn; ln++) lines[ln] = true;
+    }
+    var stmts = splitStatementsDetailed(code);
+    var id = criterionId;
+
+    stmts.forEach(function (s) {
+      var sn = normalize(s.text);
+      if (id === 'create_agent' || id === 'schema_create_agent') {
+        if (/\bCREATE\s+TABLE\b/i.test(sn) && /\bAgent\b/i.test(s.text)) mark(s.start, s.end);
+      } else if (id === 'alter_birth') {
+        if (/\bALTER\s+TABLE\b/i.test(sn) && /\bdBirthDate\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'drop_not_delete') {
+        if (/\b(?:DROP|DELETE)\s+(?:TABLE\s+)?[\w.]*Agent\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'ctas_agents' || id === 'ctas_partners') {
+        if (/\bCREATE\s+TABLE\b/i.test(sn) && /\bSELECT\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'defaults') {
+        if (/\bALTER\s+TABLE\b/i.test(sn) && /\bMODIFY\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'insert_agent' || id === 'insert_partner') {
+        if (/\bINSERT\s+INTO\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'supervisor_alter') {
+        if (/\bALTER\s+TABLE\b/i.test(sn) && /\bidsupervisor\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'supervisor_update_all') {
+        if (/\bUPDATE\b/i.test(sn) && /\bidsupervisor\s*=\s*1000\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'supervisor_update_cond' || id === 'schema_second_update' || id === 'schema_update') {
+        if (/\bUPDATE\b/i.test(sn) && (/\bidsupervisor\s*=\s*2000\b/i.test(sn) || /\bagency\s*=\s*1000\b/i.test(sn))) {
+          mark(s.start, s.end);
+        }
+      } else if (id === 'aliases') {
+        if (/\bUPDATE\b/i.test(sn) && !/\bUPDATE\s+[\w.]+\s+(\w+)\s+SET\s+\1\./i.test(sn)) mark(s.start, s.end);
+        if (/\bSELECT\b/i.test(sn) && !hasAnySelectAlias(sn)) mark(s.start, s.end);
+        if (/\bDELETE\s+FROM\b/i.test(sn) && !hasAnyDeleteAlias(sn)) mark(s.start, s.end);
+        if (/\bINSERT\s+INTO\b/i.test(sn) && !/\bINSERT\s+INTO\s+[\w.]+\s+\w+\s*\(/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'final_select' || id === 'select_fork_comment' || id === 'select_partners') {
+        if (/\bSELECT\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'update_agency' || id === 'delete_agents_match') {
+        if (/\b(?:UPDATE|DELETE)\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'create_and_deletes') {
+        if (/\b(?:CREATE\s+TABLE|DELETE\s+FROM)\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'schema_create' || id === 'schema_create_agent') {
+        if (/\bCREATE\s+TABLE\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'rollback_comment') {
+        if (/\b(?:DELETE|ROLLBACK)\b/i.test(sn)) mark(s.start, s.end);
+      } else if (id === 'merge_or_update') {
+        if (/\b(?:UPDATE|MERGE)\b/i.test(sn)) mark(s.start, s.end);
+      }
+    });
+
+    if (id === 'comments') {
+      var blocks = splitCodeBlocks(code);
+      var sqlIdx = [];
+      blocks.forEach(function (b, i) {
+        if (blockHasSql(b)) sqlIdx.push(i);
+      });
+      var pos = 0;
+      sqlIdx.forEach(function (bi) {
+        if (blockHasAdjacentComment(blocks, bi)) return;
+        var b = blocks[bi];
+        var start = code.indexOf(b, pos);
+        if (start < 0) start = code.indexOf(b);
+        if (start >= 0) mark(start, start + b.length);
+        pos = start >= 0 ? start + b.length : pos;
+      });
+    }
+
+    if (id === 'select_fork_comment') {
+      getSqlBlockLineRanges(code).forEach(function (r) {
+        var chunk = code.split('\n').slice(r.start - 1, r.end).join('\n');
+        if (/\bSELECT\b/i.test(chunk) && /\bcontract_date\b/i.test(chunk)) markLines(r.start, r.end);
+      });
+    }
+
+    return Object.keys(lines).map(Number).sort(function (a, b) { return a - b; });
   }
 
   function stmtMatch(stmt, re) {
@@ -400,6 +506,9 @@ var SqlUtil = (function () {
     hasSelect10Percent: hasSelect10Percent,
     adjacentCommentMatch: adjacentCommentMatch,
     detectSchema: detectSchema,
+    locateCriterionLines: locateCriterionLines,
+    RE_UPDATE_SET: RE_UPDATE_SET,
+    RE_UPDATE_SCHEMA: RE_UPDATE_SCHEMA,
     stmtMatch: stmtMatch,
     allStmts: allStmts,
     countMatches: countMatches,
