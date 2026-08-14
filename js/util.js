@@ -2,7 +2,7 @@
 var SqlUtil = (function () {
   function stripComments(sql) {
     return sql
-      .replace(/\/\*[\s\S]*?\*\//g, ' ')
+      .replace(/\/\*[\s\S]*?(?:\*\/|$)/g, ' ')
       .replace(/--[^\n]*/g, ' ');
   }
 
@@ -102,7 +102,7 @@ var SqlUtil = (function () {
     [/\bNUMBR\b/i, 'NUMBR → NUMBER']
   ];
 
-  var SQL_START = /^(CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|COMMIT|TRUNCATE|GRANT|REVOKE|SET|BEGIN|DECLARE|EXEC|EXECUTE|MERGE)\b/i;
+  var SQL_START = /^(WITH|CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|COMMIT|ROLLBACK|SAVEPOINT|TRUNCATE|GRANT|REVOKE|SET|BEGIN|DECLARE|EXEC|EXECUTE|MERGE)\b/i;
 
   function validateStatement(stmt) {
     var issues = [];
@@ -179,7 +179,7 @@ var SqlUtil = (function () {
   }
 
   function blockIsCommentOnly(block) {
-    return block.split('\n').every(isCommentLine);
+    return !normalize(block);
   }
 
   function blockHasOwnComment(block) {
@@ -201,10 +201,11 @@ var SqlUtil = (function () {
   }
 
   function hasInsertBeginDateSep2025(code, norm) {
-    if (/\bto_date\s*\(\s*'01[\.\/-]09[\.\/-]2025'/i.test(code)) return true;
+    if (/\bto_date\s*\(\s*'0?1[\.\/-]0?9[\.\/-]2025'/i.test(code)) return true;
+    if (/\bto_date\s*\(\s*'2025[\.\/-]0?9[\.\/-]0?1'/i.test(code)) return true;
     if (/\bdate\s+'2025-09-01'/i.test(norm)) return true;
     if (/\b01-SEP-2025\b/i.test(code)) return true;
-    if (/\bbegin_date\b/i.test(norm) && /\b01[\.\/-]09[\.\/-]2025\b/i.test(code)) return true;
+    if (/\bbegin_date\b/i.test(norm) && /\b0?1[\.\/-]0?9[\.\/-]2025\b/i.test(code)) return true;
     return false;
   }
 
@@ -231,32 +232,34 @@ var SqlUtil = (function () {
   }
 
   function hasAnySelectAlias(norm) {
-    var re = /\bFROM\s+[\w.]+\s+(\w+)\b/gi;
-    var m;
-    while ((m = re.exec(norm))) {
-      if (!isSqlAliasWord(m[1])) continue;
-      if (new RegExp('\\b' + m[1] + '\\.').test(norm)) return true;
-    }
-    re = /\bFROM\s*\([\s\S]*?\)\s+(\w+)\b/gi;
-    while ((m = re.exec(norm))) {
-      if (!isSqlAliasWord(m[1])) continue;
-      if (new RegExp('\\b' + m[1] + '\\.').test(norm)) return true;
+    var patterns = [
+      /\bFROM\s+[\w.]+\s+(\w+)\b/gi,
+      /\bJOIN\s+[\w.]+\s+(\w+)\b/gi,
+      /\bFROM\s*\([\s\S]*?\)\s+(\w+)\b/gi
+    ];
+    for (var p = 0; p < patterns.length; p++) {
+      var re = patterns[p];
+      var m;
+      while ((m = re.exec(norm))) {
+        if (!isSqlAliasWord(m[1])) continue;
+        if (new RegExp('\\b' + m[1] + '\\.').test(norm)) return true;
+      }
     }
     return false;
   }
 
   function hasTop50Limit(code, norm) {
-    if (/\bfetch\s+(?:first|next)\s+50\s+rows\s+only\b/i.test(norm)) return true;
+    if (/\bfetch\s+(?:first|next)\s+50\s+rows?\s+(?:only|with\s+ties)\b/i.test(norm)) return true;
     if (/\brownum\s*<=?\s*50\b/i.test(norm)) return true;
-    if (/\boffset\s+\d+\s+rows\s+fetch\s+next\s+50\s+rows\s+only\b/i.test(norm)) return true;
+    if (/\boffset\s+\d+\s+rows?\s+fetch\s+next\s+50\s+rows?\s+(?:only|with\s+ties)\b/i.test(norm)) return true;
     return /\bselect\b[\s\S]{0,300}\b50\b/i.test(norm) &&
       /\border\s+by\b/i.test(norm) &&
       /\b(fetch|rownum|offset|top)\b/i.test(norm);
   }
 
   function hasSelect10Percent(code, norm) {
-    if (/\bfetch\s+first\s+10\s+percent\s+rows\s+only\b/i.test(norm)) return true;
-    if (/\bsample\s*\(\s*10\s*\)/i.test(norm)) return true;
+    if (/\bfetch\s+first\s+10\s+percent\s+rows?\s+(?:only|with\s+ties)\b/i.test(norm)) return true;
+    if (/\bsample(?:\s+block)?\s*\(\s*10\s*\)/i.test(norm)) return true;
     if (/\brownum\s*<=?\s*ceil\s*\(/i.test(norm)) return true;
     if (/\brownum\s*<=?\s*\(?\s*select\s+count/i.test(norm) && /0\.1|10\s*percent|\*\s*0\.1/i.test(norm)) return true;
     return /\b10\s*%\b/.test(code) && /\bSELECT\b/i.test(code);
@@ -434,17 +437,17 @@ var SqlUtil = (function () {
     },
     ctas_agents: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bCREATE\s+TABLE\b/i.test(n) && /\bAGENTS\b/i.test(t) && /\bSELECT\b/i.test(n);
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bAGENTS(?:_?\d+)?\b/i.test(t) && /\bSELECT\b/i.test(n);
       });
     },
     ctas_partners: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(t) && /\bSELECT\b/i.test(n);
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(t) && /\bSELECT\b/i.test(n);
       });
     },
     ctas_partners_full: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(t) && /\bSELECT\b/i.test(n);
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(t) && /\bSELECT\b/i.test(n);
       });
     },
     defaults: function (code) {
@@ -454,12 +457,12 @@ var SqlUtil = (function () {
     },
     insert_agent: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bINSERT\s+INTO\b/i.test(n) && /\bAGENTS\b/i.test(n);
+        return /\bINSERT\s+INTO\b/i.test(n) && /\bAGENTS(?:_?\d+)?\b/i.test(n);
       });
     },
     insert_partner: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bINSERT\s+INTO\b/i.test(n) && /\bpartners\b/i.test(n);
+        return /\bINSERT\s+INTO\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n);
       });
     },
     supervisor_alter: function (code) {
@@ -485,7 +488,10 @@ var SqlUtil = (function () {
     },
     schema_create: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bCREATE\s+TABLE\b/i.test(n) && !/\bCREATE\s+TABLE\s+\w+\./i.test(n);
+        return /\bCREATE\s+TABLE\b/i.test(n) && (
+          !/\bCREATE\s+TABLE\s+\w+\./i.test(n) ||
+          (/\bpartnersCopy\b/i.test(n) || /\bInsuran[cs]eTypes\b/i.test(t))
+        );
       });
     },
     schema_update: function (code) {
@@ -513,17 +519,17 @@ var SqlUtil = (function () {
     },
     alter_agent: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(n) && /\bMODIFY\b/i.test(n);
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n) && /\bMODIFY\b/i.test(n);
       });
     },
     delete_all: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bDELETE\s+FROM\b/i.test(n) && /\bpartners\b/i.test(n);
+        return /\bDELETE\s+FROM\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n);
       });
     },
     select_10pct: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bSELECT\b/i.test(n) && /\bpartners\b/i.test(n);
+        return /\bSELECT\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n);
       });
     },
     create_partnersCopy: function (code) {
@@ -538,12 +544,12 @@ var SqlUtil = (function () {
     },
     create_insuranceTypes: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bCREATE\s+TABLE\b/i.test(n) && /\bInsuranceTypes\b/i.test(t);
+        return /\bCREATE\s+TABLE\b/i.test(n) && /\bInsuran[cs]eTypes\b/i.test(t);
       });
     },
     insert_all_5: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bINSERT\s+ALL\b/i.test(n) && /\bInsuranceTypes\b/i.test(n);
+        return /\bINSERT\s+ALL\b/i.test(n) && /\bInsuran[cs]eTypes\b/i.test(n);
       });
     },
     insert_products: function (code) {
@@ -558,7 +564,7 @@ var SqlUtil = (function () {
     },
     update_agency: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bUPDATE\b/i.test(n) && /\bagents\b/i.test(n);
+        return /\bUPDATE\b/i.test(n) && /\bagents(?:_?\d+)?\b/i.test(n);
       });
     },
     create_and_deletes: function (code) {
@@ -568,17 +574,17 @@ var SqlUtil = (function () {
     },
     delete_agents_match: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bDELETE\s+FROM\b/i.test(n) && /\bagents\b/i.test(n);
+        return /\bDELETE\s+FROM\b/i.test(n) && /\bagents(?:_?\d+)?\b/i.test(n);
       });
     },
     add_emergency_col: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartners\b/i.test(n) && /\bADD\b/i.test(n);
+        return /\bALTER\s+TABLE\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n) && /\bADD\b/i.test(n);
       });
     },
     update_phone_mail: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bUPDATE\b/i.test(n) && /\bpartners\b/i.test(n);
+        return /\bUPDATE\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n);
       });
     },
     drop_purge: function (code) {
@@ -588,12 +594,12 @@ var SqlUtil = (function () {
     },
     insert_all_agents: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bINSERT\s+ALL\b/i.test(n) && /\bagents\b/i.test(n);
+        return /\bINSERT\s+ALL\b/i.test(n) && /\bagents(?:_?\d+)?\b/i.test(n);
       });
     },
     update_partner_gaps: function (code) {
       return locateByStmt(code, function (t, n) {
-        return /\bUPDATE\b/i.test(n) && /\bpartners\b/i.test(n) && /\bpartner\b/i.test(n);
+        return /\bUPDATE\b/i.test(n) && /\bpartners(?:_?\d+)?\b/i.test(n) && /\bpartner\b/i.test(n);
       });
     }
   };
@@ -621,13 +627,13 @@ var SqlUtil = (function () {
     return n;
   }
 
-  var SQL_KW = 'CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|FROM|WHERE|SET|TABLE|AS|INTO|ADD|MODIFY|DEFAULT|COMMIT|NUMBER|VARCHAR2|VARCHAR|DATE|ORDER|BY|FETCH|FIRST|ROWS|ONLY|JOIN|ON|AND|OR|NOT|NULL|IS|IN|VALUES|NEXTVAL|TO_DATE|TRUNCATE|GRANT|REVOKE|BEGIN|DECLARE|EXEC|EXECUTE|PRIMARY|KEY|CONSTRAINT|INDEX|VIEW|SEQUENCE|UNION|ALL|DISTINCT|GROUP|HAVING|LIKE|BETWEEN|CASE|WHEN|THEN|ELSE|END|CAST|PURGE|MERGE|ROW_NUMBER|DENSE_RANK|RANK|SAMPLE|SYSDATE|ROLLBACK';
+  var SQL_KW = 'WITH|CREATE|ALTER|DROP|INSERT|UPDATE|DELETE|SELECT|FROM|WHERE|SET|TABLE|AS|INTO|ADD|MODIFY|DEFAULT|COMMIT|NUMBER|VARCHAR2|VARCHAR|DATE|ORDER|BY|FETCH|FIRST|ROWS|ONLY|JOIN|ON|AND|OR|NOT|NULL|IS|IN|VALUES|NEXTVAL|TO_DATE|TRUNCATE|GRANT|REVOKE|BEGIN|DECLARE|EXEC|EXECUTE|PRIMARY|KEY|CONSTRAINT|INDEX|VIEW|SEQUENCE|UNION|ALL|DISTINCT|GROUP|HAVING|LIKE|BETWEEN|CASE|WHEN|THEN|ELSE|END|CAST|PURGE|MERGE|ROW_NUMBER|DENSE_RANK|RANK|SAMPLE|SYSDATE|ROLLBACK|SAVEPOINT';
 
   function escHtml(s) {
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
   }
 
-  function highlightLine(line) {
+  function highlightLine(line, inBlock) {
     var parts = [];
     var i = 0;
     var reKw = new RegExp('\\b(' + SQL_KW + ')\\b', 'gi');
@@ -647,9 +653,30 @@ var SqlUtil = (function () {
 
     while (i < line.length) {
       var rest = line.slice(i);
+      if (inBlock) {
+        var endBlk = rest.indexOf('*/');
+        if (endBlk === -1) {
+          parts.push('<span class="hl-cmt">' + escHtml(rest) + '</span>');
+          return { html: parts.join('') || ' ', inBlock: true };
+        }
+        parts.push('<span class="hl-cmt">' + escHtml(rest.slice(0, endBlk + 2)) + '</span>');
+        i += endBlk + 2;
+        inBlock = false;
+        continue;
+      }
       if (rest.match(/^--/)) {
         parts.push('<span class="hl-cmt">' + escHtml(rest) + '</span>');
         break;
+      }
+      if (rest.slice(0, 2) === '/*') {
+        var endCmt = rest.indexOf('*/', 2);
+        if (endCmt === -1) {
+          parts.push('<span class="hl-cmt">' + escHtml(rest) + '</span>');
+          return { html: parts.join('') || ' ', inBlock: true };
+        }
+        parts.push('<span class="hl-cmt">' + escHtml(rest.slice(0, endCmt + 2)) + '</span>');
+        i += endCmt + 2;
+        continue;
       }
       if (rest[0] === "'") {
         var j = 1;
@@ -675,17 +702,22 @@ var SqlUtil = (function () {
         i += num[1].length;
         continue;
       }
-      var next = rest.search(/(?:--|'|"|\d)/);
+      var next = rest.search(/(?:--|'|"|\/\*|\d)/);
       if (next === -1) { pushPlain(rest); break; }
       if (next > 0) { pushPlain(rest.slice(0, next)); i += next; continue; }
       parts.push(escHtml(rest[0]));
       i++;
     }
-    return parts.join('') || ' ';
+    return { html: parts.join('') || ' ', inBlock: false };
   }
 
   function highlightSql(code) {
-    return code.split('\n').map(function (ln) { return highlightLine(ln); });
+    var inBlock = false;
+    return code.split('\n').map(function (ln) {
+      var r = highlightLine(ln, inBlock);
+      inBlock = r.inBlock;
+      return r.html;
+    });
   }
 
   return {

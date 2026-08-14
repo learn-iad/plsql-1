@@ -233,6 +233,7 @@ var History = (function () {
       taskId: taskId,
       score: result.score,
       pass: result.pass,
+      forced: !!result.forced,
       criteria: result.criteria.map(function (c) {
         return {
           id: c.id,
@@ -254,7 +255,7 @@ var History = (function () {
   }
 
   function hasAnyPass() {
-    return load().attempts.some(function (a) { return a.pass; });
+    return load().attempts.some(function (a) { return a.pass || a.forced; });
   }
 
   function report(tasks) {
@@ -262,6 +263,7 @@ var History = (function () {
     var byCategory = {};
     var firstPassGood = {};
     var taskPasses = {};
+    var forcedTasks = {};
     var earned = {};
 
     Object.keys(CATEGORY_LABELS).forEach(function (k) {
@@ -271,6 +273,10 @@ var History = (function () {
 
     data.attempts.forEach(function (a) {
       if (a.pass) taskPasses[a.taskId] = true;
+      if (a.forced) {
+        forcedTasks[a.taskId] = true;
+        return;
+      }
 
       var isFirstOnTask = !data.attempts.some(function (x) {
         return x.taskId === a.taskId && x.ts < a.ts;
@@ -327,10 +333,16 @@ var History = (function () {
       .filter(function (cat) { return CATEGORY_LABELS[cat]; })
       .map(function (cat) { return CATEGORY_LABELS[cat]; });
 
+    var forcedList = Object.keys(forcedTasks).map(function (id) {
+      var task = (tasks || []).filter(function (t) { return t.id === id; })[0];
+      return { id: id, title: task ? task.title : id };
+    });
+
     return {
       attempts: data.attempts.length,
       hasPass: hasAnyPass(),
       taskPasses: taskPasses,
+      forcedTasks: forcedList,
       achievements: achievements,
       growthAreas: growthAreas,
       firstTryStrengths: firstTryStrengths
@@ -345,9 +357,11 @@ var History = (function () {
 
     var taskScores = {};
     var taskPassed = {};
+    var taskForced = {};
     tasks.forEach(function (t) {
       taskScores[t.id] = null;
       taskPassed[t.id] = false;
+      taskForced[t.id] = false;
     });
 
     data.attempts.forEach(function (a) {
@@ -355,9 +369,15 @@ var History = (function () {
         taskScores[a.taskId] = a.score;
       }
       if (a.pass) taskPassed[a.taskId] = true;
+      if (a.forced) taskForced[a.taskId] = true;
     });
 
-    var tasksDone = Object.keys(taskPassed).filter(function (k) { return taskPassed[k]; }).length;
+    Object.keys(taskForced).forEach(function (id) {
+      if (taskForced[id] && taskPassed[id] !== true) taskPassed[id] = 'forced';
+    });
+
+    var tasksDone = Object.keys(taskPassed).filter(function (k) { return taskPassed[k] === true; }).length;
+    var hasForced = Object.keys(taskForced).some(function (k) { return taskForced[k]; });
 
     var attempts = data.attempts.map(function (a, i) {
       var task = taskById[a.taskId] || {};
@@ -371,6 +391,7 @@ var History = (function () {
         ts: a.ts,
         score: a.score,
         pass: a.pass,
+        forced: !!a.forced,
         codeLen: a.codeLen || (a.code ? a.code.length : 0),
         code: a.code || '',
         criteria: a.criteria || [],
@@ -385,7 +406,9 @@ var History = (function () {
         course: meta.courseName || 'PL/SQL Oracle Trainer',
         student: meta.student,
         group: meta.group,
-        status: meta.completed ? 'Завершён' : 'В процессе',
+        status: meta.completed
+          ? (hasForced ? 'Завершён (есть условные сдачи)' : 'Завершён')
+          : 'В процессе',
         startedAt: meta.startedAt,
         finishedAt: meta.finishedAt || null,
         completed: !!meta.completed,
@@ -394,6 +417,7 @@ var History = (function () {
         totalAttempts: data.attempts.length,
         taskScores: taskScores,
         taskPassed: taskPassed,
+        taskForced: taskForced,
         achievements: summary.achievements,
         growthAreas: summary.growthAreas,
         firstTryStrengths: summary.firstTryStrengths,

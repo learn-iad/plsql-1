@@ -10,7 +10,7 @@ var TASKS = [
       '<li>Добавьте столбец <b>dBirthDate</b> (DATE).</li>' +
       '<li>Удалите таблицу <b>с возможностью восстановления</b> (DROP, не DELETE).</li>' +
       '<li>Скопируйте <b>edu.agents</b> в AGENTS (CREATE TABLE … AS SELECT).</li>' +
-      '<li>Задайте значения по умолчанию для: end_date, auto_fix_comm, is_ichp, is_filial, top_filial, in_premium, ichp_old, idrappeltype, lnetwork_develop.</li>' +
+      '<li>Задайте значения по умолчанию: <b>end_date</b> = DATE \'2026-01-01\', <b>auto_fix_comm</b> = \'Y\', <b>is_ichp</b> = \'Y\', <b>is_filial</b> = \'Y\', <b>top_filial</b> = 1, <b>in_premium</b> = \'Y\', <b>ichp_old</b> = 1, <b>idrappeltype</b> = 1, <b>lnetwork_develop</b> = \'Y\'.</li>' +
       '<li>INSERT: agent = edu.seqEduAgents.nextval, nrating = 99, begin_date = 01.09.2025. Не забудьте COMMIT в PL/SQL Developer.</li>' +
       '<li>ALTER ADD idsupervisor; UPDATE всех = 1000; UPDATE agent &lt; 500 → idsupervisor = 2000.</li>' +
       '<li>SELECT: agent, sname, nrating, idsupervisor, top_filial — 50 строк, сортировка по дате контракта.</li>' +
@@ -36,8 +36,8 @@ var TASKS = [
           var n = SqlUtil.normalize(code);
           var ok = /\bCREATE\s+TABLE\s+\w+\.Agent\s*\(/i.test(n) &&
             /\bid\s+NUMBER\b/i.test(n) &&
-            /\bsLogin\s+VARCHAR2\s*\(\s*150\s*\)/i.test(n) &&
-            /\bsPassword\s+VARCHAR2\s*\(\s*30\s*\)/i.test(n);
+            /\bsLogin\s+VARCHAR2\s*\(\s*150(?:\s+(?:CHAR|BYTE))?\s*\)/i.test(n) &&
+            /\bsPassword\s+VARCHAR2\s*\(\s*30(?:\s+(?:CHAR|BYTE))?\s*\)/i.test(n);
           return { pass: ok };
         }
       },
@@ -56,7 +56,7 @@ var TASKS = [
         label: 'ALTER ADD dBirthDate DATE',
         weight: 8,
         check: function (code) {
-          var ok = /\bALTER\s+TABLE\s+[\w.]+\s+ADD\s+dBirthDate\s+DATE\b/i.test(SqlUtil.normalize(code));
+          var ok = /\bALTER\s+TABLE\s+[\w.]+\s+ADD\s*\(?\s*dBirthDate\s+DATE\b/i.test(SqlUtil.normalize(code));
           return { pass: ok };
         }
       },
@@ -78,7 +78,7 @@ var TASKS = [
         label: 'CREATE TABLE AGENTS AS SELECT из edu.agents',
         weight: 10,
         check: function (code) {
-          var ok = /\bCREATE\s+TABLE\s+[\w.]*AGENTS\s+AS\s*\(?\s*SELECT\b/i.test(SqlUtil.normalize(code)) &&
+          var ok = /\bCREATE\s+TABLE\s+[\w.]*AGENTS(?:_?\d+)?\s+AS\s*\(?\s*SELECT\b/i.test(SqlUtil.normalize(code)) &&
             /\bedu\.agents\b/i.test(code);
           return { pass: ok };
         }
@@ -87,7 +87,7 @@ var TASKS = [
         id: 'defaults',
         label: 'ALTER MODIFY — значения по умолчанию (9 полей)',
         weight: 12,
-        hint: 'end_date, auto_fix_comm, is_ichp, is_filial, top_filial, in_premium, ichp_old, idrappeltype, lnetwork_develop.',
+        hint: 'end_date DATE \'2026-01-01\', auto_fix_comm/is_ichp/is_filial/in_premium/lnetwork_develop = \'Y\', top_filial/ichp_old/idrappeltype = 1.',
         check: function (code) {
           var fields = ['end_date', 'auto_fix_comm', 'is_ichp', 'is_filial', 'top_filial', 'in_premium', 'ichp_old', 'idrappeltype', 'lnetwork_develop'];
           var norm = SqlUtil.normalize(code);
@@ -101,7 +101,7 @@ var TASKS = [
         weight: 10,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bINSERT\s+INTO\s+[\w.]*AGENTS\b/i.test(norm) &&
+          var ok = /\bINSERT\s+INTO\s+[\w.]*AGENTS(?:_?\d+)?\b/i.test(norm) &&
             /edu\.seqEduAgents\.nextval/i.test(code) &&
             /\bnrating\b/i.test(norm) && /\b99\b/.test(norm) &&
             SqlUtil.hasInsertBeginDateSep2025(code, norm);
@@ -113,7 +113,7 @@ var TASKS = [
         label: 'ALTER ADD idsupervisor',
         weight: 5,
         check: function (code) {
-          return { pass: /\bALTER\s+TABLE\s+[\w.]*AGENTS\s+ADD\s+idsupervisor\s+NUMBER\b/i.test(SqlUtil.normalize(code)) };
+          return { pass: /\bALTER\s+TABLE\s+[\w.]*AGENTS(?:_?\d+)?\s+ADD\s*\(?\s*idsupervisor\s+NUMBER\b/i.test(SqlUtil.normalize(code)) };
         }
       },
       {
@@ -230,7 +230,7 @@ var TASKS = [
         weight: 8,
         hint: 'Например: student_schema.partners',
         check: function (code) {
-          return { pass: /\bCREATE\s+TABLE\s+\w+\.partners\b/i.test(SqlUtil.normalize(code)) };
+          return { pass: /\bCREATE\s+TABLE\s+\w+\.partners(?:_?\d+)?\b/i.test(SqlUtil.normalize(code)) };
         }
       },
       {
@@ -242,7 +242,7 @@ var TASKS = [
           var norm = SqlUtil.normalize(code);
           var cols = ['partner', 'name', 'man', 'agent', 'admdate'];
           var allCols = cols.every(function (c) { return new RegExp('\\b' + c + '\\b', 'i').test(norm); });
-          var ok = /\bCREATE\s+TABLE\s+[\w.]*partners\s+AS\b/i.test(norm) &&
+          var ok = /\bCREATE\s+TABLE\s+[\w.]*partners(?:_?\d+)?\s+AS\b/i.test(norm) &&
             /\bedu\.partners\b/i.test(code) && allCols;
           return { pass: ok, detail: allCols ? 'Поля найдены' : 'Не все поля' };
         }
@@ -253,7 +253,7 @@ var TASKS = [
         weight: 8,
         hint: 'agent = 1000 не поместится в VARCHAR2(1) — измените тип.',
         check: function (code) {
-          return { pass: /\bALTER\s+TABLE\s+[\w.]*partners\s+MODIFY\b[\s\S]*\bagent\b/i.test(SqlUtil.normalize(code)) };
+          return { pass: /\bALTER\s+TABLE\s+[\w.]*partners(?:_?\d+)?\s+MODIFY\b[\s\S]*\bagent\b/i.test(SqlUtil.normalize(code)) };
         }
       },
       {
@@ -262,7 +262,7 @@ var TASKS = [
         weight: 12,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bINSERT\s+INTO\s+[\w.]*partners\b/i.test(norm) &&
+          var ok = /\bINSERT\s+INTO\s+[\w.]*partners(?:_?\d+)?\b/i.test(norm) &&
             /\bpartner\b/i.test(norm) && /\b1\b/.test(norm) &&
             /Тестов\s+Тест\s+Тестович/i.test(code) &&
             /\bman\b/i.test(norm) && /'Y'/i.test(code) &&
@@ -276,7 +276,7 @@ var TASKS = [
         label: 'DELETE FROM partners (все записи)',
         weight: 10,
         check: function (code) {
-          return { pass: /\bDELETE\s+FROM\s+[\w.]*partners\b/i.test(SqlUtil.normalize(code)) };
+          return { pass: /\bDELETE\s+FROM\s+[\w.]*partners(?:_?\d+)?\b/i.test(SqlUtil.normalize(code)) };
         }
       },
       {
@@ -326,7 +326,7 @@ var TASKS = [
           var sel = SqlUtil.hasAnySelectAlias(norm);
           var ctasM = norm.match(/\bFROM\s+edu\.partners\s+(\w+)\b/i);
           var ctas = ctasM && new RegExp('\\b' + ctasM[1] + '\\.').test(norm);
-          var insM = norm.match(/\bINSERT\s+INTO\s+[\w.]*partners\s+(\w+)\b/i);
+          var insM = norm.match(/\bINSERT\s+INTO\s+[\w.]*partners(?:_?\d+)?\s+(\w+)\b/i);
           var ins = insM && new RegExp('\\b' + insM[1] + '\\.').test(norm);
           return { pass: sel || ctas || ins, detail: 'SELECT alias: ' + sel + ', CTAS alias: ' + ctas + ', INSERT alias: ' + ins };
         }
@@ -367,10 +367,11 @@ var TASKS = [
         id: 'schema_create',
         label: 'Схема перед своими таблицами',
         weight: 8,
+        hint: 'Нужна схема перед partnersCopy и InsuranceTypes, например test.InsuranceTypes.',
         check: function (code) {
           var norm = SqlUtil.normalize(code);
           var ok = /\bCREATE\s+TABLE\s+\w+\.partnersCopy\b/i.test(norm) &&
-            /\bCREATE\s+TABLE\s+\w+\.InsuranceTypes\b/i.test(norm);
+            /\bCREATE\s+TABLE\s+\w+\.Insuran[cs]eTypes\b/i.test(norm);
           return { pass: ok };
         }
       },
@@ -394,7 +395,7 @@ var TASKS = [
         check: function (code) {
           var norm = SqlUtil.normalize(code);
           var ok = /\bALTER\s+TABLE\s+[\w.]*partnersCopy\s+MODIFY\b/i.test(norm) &&
-            /\b(varchar2|varchar)\s*\(\s*\d+\s*\)/i.test(norm);
+            /\b(varchar2|varchar)\s*\(\s*\d+(?:\s+(?:CHAR|BYTE))?\s*\)/i.test(norm);
           return { pass: ok };
         }
       },
@@ -404,10 +405,10 @@ var TASKS = [
         weight: 10,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bCREATE\s+TABLE\s+[\w.]*InsuranceTypes\b/i.test(norm) &&
+          var ok = /\bCREATE\s+TABLE\s+[\w.]*Insuran[cs]eTypes\b/i.test(norm) &&
             /\bid\s+NUMBER\b/i.test(norm) &&
-            /\bsname\s+VARCHAR2\s*\(\s*50\s*\)/i.test(norm) &&
-            /\bsdefault_table_name\s+VARCHAR2\s*\(\s*30\s*\)/i.test(norm);
+            /\bsname\s+VARCHAR2\s*\(\s*50(?:\s+(?:CHAR|BYTE))?\s*\)/i.test(norm) &&
+            /\bsdefault_table_name\s+VARCHAR2\s*\(\s*30(?:\s+(?:CHAR|BYTE))?\s*\)/i.test(norm);
           return { pass: ok };
         }
       },
@@ -418,8 +419,8 @@ var TASKS = [
         check: function (code) {
           var norm = SqlUtil.normalize(code);
           var ok = /\bINSERT\s+ALL\b/i.test(norm) &&
-            /\bINTO\s+[\w.]*InsuranceTypes\b/i.test(norm) &&
-            (SqlUtil.countMatches(code, /\bINTO\s+[\w.]*InsuranceTypes\b/gi) >= 5 ||
+            /\bINTO\s+[\w.]*Insuran[cs]eTypes\b/i.test(norm) &&
+            (SqlUtil.countMatches(code, /\bINTO\s+[\w.]*Insuran[cs]eTypes\b/gi) >= 5 ||
               SqlUtil.countMatches(code, /\bINTO\s+[\w.]*insurancetypes\b/gi) >= 5);
           return { pass: ok };
         }
@@ -430,8 +431,8 @@ var TASKS = [
         weight: 12,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = (/\bINSERT\s+INTO\s+[\w.]*InsuranceTypes\b/i.test(norm) ||
-              (/\bINSERT\s+ALL\b/i.test(norm) && /\bINTO\s+[\w.]*InsuranceTypes\b/i.test(norm))) &&
+          var ok = (/\bINSERT\s+INTO\s+[\w.]*Insuran[cs]eTypes\b/i.test(norm) ||
+              (/\bINSERT\s+ALL\b/i.test(norm) && /\bINTO\s+[\w.]*Insuran[cs]eTypes\b/i.test(norm))) &&
             /\bSELECT\b[\s\S]*\bFROM\s+i3\.products\b/i.test(norm);
           return { pass: ok };
         }
@@ -512,7 +513,7 @@ var TASKS = [
         hint: 'Подзапрос с MAX(contract_date) или ROW_NUMBER / RANK.',
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bUPDATE\s+[\w.]*agents\b/i.test(norm) &&
+          var ok = /\bUPDATE\s+[\w.]*agents(?:_?\d+)?\b/i.test(norm) &&
             /\bagency\s*=\s*1000\b/i.test(norm) &&
             (/\bcontract_date\b/i.test(norm) ||
               /\bmax\s*\(\s*contract_date\s*\)/i.test(norm) ||
@@ -543,8 +544,8 @@ var TASKS = [
           var norm = SqlUtil.normalize(code);
           var hasCreate = /\bCREATE\s+TABLE\s+\w+\.\w+/i.test(norm);
           var deletes = SqlUtil.countMatches(code, /\bDELETE\s+FROM\b/gi);
-          var hasHalf = /50\s*%|\/\s*2|половин|half|count\s*\(\s*\*\s*\)\s*\/\s*2/i.test(code);
-          var hasTenth = /10\s*%|десят|count\s*\(\s*\*\s*\)\s*\/\s*10|mod\s*\(/i.test(code);
+          var hasHalf = /50\s*%|50\s*percent|\/\s*2|половин|half|0\.5|count\s*\(\s*\*\s*\)\s*\/\s*2/i.test(code);
+          var hasTenth = /10\s*%|10\s*percent|десят|count\s*\(\s*\*\s*\)\s*\/\s*10|mod\s*\(|0\.1/i.test(code);
           var ok = hasCreate && deletes >= 3 && hasHalf && hasTenth;
           return { pass: ok, detail: 'CREATE: ' + hasCreate + ', DELETE×' + deletes };
         }
@@ -555,7 +556,7 @@ var TASKS = [
         weight: 14,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bDELETE\s+FROM\s+[\w.]*agents\b/i.test(norm) &&
+          var ok = /\bDELETE\s+FROM\s+[\w.]*agents(?:_?\d+)?\b/i.test(norm) &&
             /\bedu\.partners\b/i.test(code) &&
             /\bagent\b/i.test(norm) && /\bpartner\b/i.test(norm) &&
             (/\=\s*[\w.]+\.partner\b/i.test(norm) ||
@@ -637,7 +638,7 @@ var TASKS = [
         weight: 12,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          return { pass: /\bCREATE\s+TABLE\s+[\w.]*partners\s+AS\b/i.test(norm) &&
+          return { pass: /\bCREATE\s+TABLE\s+[\w.]*partners(?:_?\d+)?\s+AS\b/i.test(norm) &&
             /\bedu\.partners\b/i.test(code) &&
             /\bSELECT\b[\s\S]*\bFROM\b/i.test(norm) };
         }
@@ -648,8 +649,8 @@ var TASKS = [
         weight: 10,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          return { pass: /\bALTER\s+TABLE\s+[\w.]*partners\s+ADD\b[\s\S]*\bsUsedEmergencyCommunicationType\b/i.test(norm) &&
-            /\bvarchar2\s*\(\s*30\s*\)/i.test(norm) };
+          return { pass: /\bALTER\s+TABLE\s+[\w.]*partners(?:_?\d+)?\s+ADD\b[\s\S]*\bsUsedEmergencyCommunicationType\b/i.test(norm) &&
+            /\bvarchar2\s*\(\s*30(?:\s+(?:CHAR|BYTE))?\s*\)/i.test(norm) };
         }
       },
       {
@@ -658,7 +659,7 @@ var TASKS = [
         weight: 12,
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = /\bUPDATE\s+[\w.]*partners\b/i.test(norm) &&
+          var ok = /\bUPDATE\s+[\w.]*partners(?:_?\d+)?\b/i.test(norm) &&
             /\bPhone\b/i.test(code) && /\bMail\b/i.test(code) &&
             (/\bphone\b/i.test(norm) || /\btel\b/i.test(norm) || /\bmobile\b/i.test(norm));
           return { pass: ok };
@@ -679,8 +680,8 @@ var TASKS = [
         check: function (code) {
           var norm = SqlUtil.normalize(code);
           var ok = /\bINSERT\s+ALL\b/i.test(norm) &&
-            /\bINTO\s+[\w.]*agents\b/i.test(norm) &&
-            SqlUtil.countMatches(code, /\bINTO\s+[\w.]*agents\b/gi) >= 5;
+            /\bINTO\s+[\w.]*agents(?:_?\d+)?\b/i.test(norm) &&
+            SqlUtil.countMatches(code, /\bINTO\s+[\w.]*agents(?:_?\d+)?\b/gi) >= 5;
           return { pass: ok };
         }
       },
@@ -691,7 +692,7 @@ var TASKS = [
         hint: 'ROW_NUMBER(), DENSE_RANK() или MERGE — с комментарием.',
         check: function (code) {
           var norm = SqlUtil.normalize(code);
-          var ok = (/\bUPDATE\s+[\w.]*partners\b/i.test(norm) || /\bMERGE\s+INTO\s+[\w.]*partners\b/i.test(norm)) &&
+          var ok = (/\bUPDATE\s+[\w.]*partners(?:_?\d+)?\b/i.test(norm) || /\bMERGE\s+INTO\s+[\w.]*partners(?:_?\d+)?\b/i.test(norm)) &&
             /\bpartner\b/i.test(norm) &&
             (/\brow_number\b/i.test(norm) || /\bdense_rank\b/i.test(norm) ||
               /\brank\b/i.test(norm) || /\bmerge\b/i.test(norm) ||

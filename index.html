@@ -174,7 +174,7 @@
     .code-backdrop{
       position:absolute;inset:0;pointer-events:none;overflow:hidden;
       padding:12px 14px;font-family:Consolas,monospace;font-size:13px;line-height:1.55;
-      white-space:pre-wrap;word-wrap:break-word;color:#cbd5e1;
+      white-space:pre;overflow-wrap:normal;word-wrap:normal;tab-size:2;box-sizing:border-box;color:#cbd5e1;
     }
     .code-backdrop .ln-invalid{background:rgba(239,68,68,.18);border-radius:2px}
     .code-backdrop .ln-hint{background:rgba(251,191,36,.24);border-radius:2px;box-shadow:inset 0 0 0 1px rgba(251,191,36,.35)}
@@ -190,7 +190,7 @@
     .line-nums{
       padding:12px 0 12px 10px;font-family:Consolas,monospace;font-size:13px;line-height:1.55;
       color:#475569;text-align:right;min-width:36px;background:rgba(8,18,14,.7);
-      border-right:1px solid rgba(74,222,128,.08);overflow:hidden;white-space:pre;
+      border-right:1px solid rgba(74,222,128,.08);overflow:hidden;white-space:pre;tab-size:2;
       align-self:stretch;overflow-y:hidden;
     }
     .line-nums .ln-hint{color:#fbbf24;font-weight:600}
@@ -199,7 +199,7 @@
       font-family:Consolas,monospace;font-size:13px;line-height:1.55;
       background:transparent;color:transparent;caret-color:#e2e8f0;
       -webkit-text-fill-color:transparent;tab-size:2;min-height:0;height:100%;
-      position:relative;z-index:1;overflow:auto;
+      position:relative;z-index:1;overflow:auto;white-space:pre;overflow-wrap:normal;word-wrap:normal;box-sizing:border-box;
     }
     .sql-input::placeholder{color:#64748b;-webkit-text-fill-color:#64748b;opacity:1}
     .editor-stack::before{
@@ -215,6 +215,21 @@
       padding:7px 14px;border:1px solid rgba(74,222,128,.2);border-radius:8px;
       background:rgba(15,40,30,.4);color:#94a3b8;font-family:inherit;font-size:.82rem;cursor:pointer;
     }
+    .btn-force{
+      position:relative;
+      padding:7px 14px;border:1px solid rgba(251,191,36,.28);border-radius:8px;
+      background:rgba(45,35,10,.4);color:#fbbf24;font-family:inherit;font-size:.82rem;cursor:pointer;
+    }
+    .btn-force[disabled]{opacity:.45;cursor:not-allowed}
+    .btn-force:hover:not([disabled])::after{
+      content:attr(data-tip);
+      position:absolute;left:50%;bottom:calc(100% + 8px);transform:translateX(-50%);
+      width:max-content;max-width:260px;padding:8px 10px;border-radius:8px;
+      background:#1a1408;border:1px solid rgba(251,191,36,.35);color:#fde68a;
+      font-size:.75rem;font-weight:400;line-height:1.35;white-space:normal;
+      z-index:30;pointer-events:none;box-shadow:0 8px 20px rgba(0,0,0,.35);
+    }
+    .score-forced{color:#fbbf24}
     .hint-kbd{font-size:.75rem;color:#64748b;margin-left:auto}
     .output-body,.side-body{flex:1;overflow:auto;padding:12px 14px;font-size:.88rem;line-height:1.5;min-height:120px}
     .score-bar{
@@ -435,7 +450,7 @@
     .bug-report-email-row{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
     .bug-report-email{
       color:#fca5a5;font-weight:600;font-size:.95rem;text-decoration:none;
-      border-bottom:1px solid rgba(248,113,113,.35);padding-bottom:1px;
+      border-bottom:1px solid rgba(248,113,113,.35);padding-bottom:1px;cursor:pointer;
     }
     .bug-report-email:hover{color:#fecaca;border-bottom-color:rgba(252,165,165,.6)}
     .btn-copy-email{
@@ -619,6 +634,7 @@
         <div class="toolbar">
           <button type="button" class="btn-run" id="btnCheck">✓ Проверить</button>
           <button type="button" class="btn-secondary" id="btnClear">Очистить</button>
+          <button type="button" class="btn-force" id="btnForcePass" data-tip="Нажимай, если уверен, что твое решение верное, а тренажер ошибается">Сдать условно</button>
           <button type="button" class="btn-secondary btn-report" id="btnReport" disabled title="Доступен после зачёта задания">Мой отчёт</button>
           <span class="hint-kbd">Ctrl + Enter</span>
         </div>
@@ -755,6 +771,7 @@
       document.getElementById('btnCheck').disabled = locked;
       document.getElementById('btnClear').disabled = locked;
       btnReport.disabled = locked || !History.hasAnyPass();
+      updateForceBtn();
     }
 
     function loadProgress(){
@@ -974,24 +991,43 @@
     }
 
     function isTaskPassed(taskId){
-      if (resultsByTask[taskId] && resultsByTask[taskId].pass) return true;
-      return History.load().attempts.some(function(a){ return a.taskId === taskId && a.pass; });
+      if (resultsByTask[taskId] && (resultsByTask[taskId].pass || resultsByTask[taskId].forced)) return true;
+      return History.load().attempts.some(function(a){ return a.taskId === taskId && (a.pass || a.forced); });
+    }
+
+    function isTaskReallyPassed(taskId){
+      if (resultsByTask[taskId] && resultsByTask[taskId].pass && !resultsByTask[taskId].forced) return true;
+      return History.load().attempts.some(function(a){ return a.taskId === taskId && a.pass && !a.forced; });
+    }
+
+    function updateForceBtn(){
+      var btn = document.getElementById('btnForcePass');
+      if (!btn) return;
+      var task = TASKS[taskStep];
+      var unlocked = !!(task && isTaskPassed(task.id));
+      btn.disabled = !trainerReady || identOpen() || unlocked;
+      btn.title = unlocked ? 'Задание уже сдано — можно перейти дальше' : '';
     }
 
     function updateNextBtn(){
       var hasNext = taskStep < TASKS.length - 1;
       if (!hasNext){
         btnNextTask.hidden = true;
+        updateForceBtn();
         return;
       }
       btnNextTask.hidden = false;
       btnNextTask.textContent = 'Следующее задание →';
       var ready = isTaskPassed(TASKS[taskStep].id);
+      var forcedOnly = ready && !isTaskReallyPassed(TASKS[taskStep].id);
       btnNextTask.disabled = !ready;
       btnNextTask.classList.toggle('ready', ready);
-      btnNextTask.title = ready
-        ? 'Перейти к следующему заданию'
-        : 'Доступно после зачёта текущего задания';
+      btnNextTask.title = forcedOnly
+        ? 'Перейти дальше (условный зачёт)'
+        : ready
+          ? 'Перейти к следующему заданию'
+          : 'Доступно после зачёта текущего задания';
+      updateForceBtn();
     }
 
     function goToNextTask(){
@@ -1079,7 +1115,7 @@
       historyBody.innerHTML = data.attempts.slice().reverse().slice(0,12).map(function(a){
         var d = new Date(a.ts);
         return '<div class="hist-item"><b>' + esc(a.score) + '%</b> · ' + esc(a.taskId) +
-          ' · ' + d.toLocaleString('ru-RU') + (a.pass ? ' ✓' : '') + '</div>';
+          ' · ' + d.toLocaleString('ru-RU') + (a.forced ? ' ⚠ условно' : a.pass ? ' ✓' : '') + '</div>';
       }).join('');
     }
 
@@ -1091,8 +1127,10 @@
       var html = '<div class="score-block">';
       html += '<div class="score-num">' + result.score + '%</div>';
       html += '<div class="score-bar"><div class="score-fill" style="width:' + result.score + '%"></div></div>';
-      html += '<div class="score-label">' + passed + ' из ' + total + ' критериев · ' +
-        (result.pass ? 'задание зачтено ✓' : 'продолжайте работу') + '</div>';
+      html += '<div class="score-label' + (result.forced ? ' score-forced' : '') + '">' + passed + ' из ' + total + ' критериев · ' +
+        (result.forced
+          ? 'условный зачёт — переход разрешён, преподаватель увидит пометку'
+          : result.pass ? 'задание зачтено ✓' : 'продолжайте работу') + '</div>';
       html += '</div>';
 
       html += '<button type="button" class="btn-secondary btn-details" id="btnDetails">Подробности проверки</button>';
@@ -1239,6 +1277,37 @@
       }
     }
 
+    function forcePassTask(){
+      if (!trainerReady || identOpen()) return;
+      var task = TASKS[taskStep];
+      if (isTaskPassed(task.id)) return;
+      if (!confirm('Задание будет отмечено как условно сданное из‑за ошибки тренажёра. Преподаватель увидит это в отчёте. Продолжить?')) return;
+      var code = sqlInput.value;
+      var result;
+      try {
+        result = Checker.run(code, task);
+      } catch (err) {
+        result = { score: 0, pass: false, criteria: [], oracleErrors: [], strengths: [], weaknesses: [] };
+      }
+      result.forced = true;
+      result.pass = false;
+      if (!result.criteria) result.criteria = [];
+      if (!result.oracleErrors) result.oracleErrors = [];
+      History.addAttempt(task.id, result, code);
+      resultsByTask[task.id] = result;
+      renderResult(result);
+      switchTab('result');
+      renderHistory();
+      updateReportBtn();
+      updateNextBtn();
+      if (taskStep >= TASKS.length - 1){
+        Report.markCompleted();
+        if (Report.isConfigured() && Report.CONFIG.autoSendOnComplete){
+          Report.sendReport('complete', TASKS);
+        }
+      }
+    }
+
     function hideAchFloatTip(){
       var tip = document.getElementById('achFloatTip');
       tip.style.display = 'none';
@@ -1289,6 +1358,12 @@
       }
       var r = History.report(TASKS);
       var html = '<p>Всего попыток: <b>' + r.attempts + '</b></p>';
+
+      if (r.forcedTasks && r.forcedTasks.length){
+        html += '<p style="color:#fbbf24"><b>Условный зачёт</b> (ошибка тренажёра): ' +
+          r.forcedTasks.map(function(t){ return esc(t.title); }).join(', ') +
+          '. Преподаватель увидит эту пометку.</p>';
+      }
 
       if (r.firstTryStrengths.length){
         html += '<p><b style="color:#4ade80">Сразу получилось хорошо</b></p><ul>';
@@ -1346,9 +1421,25 @@
     }
 
     sqlInput.addEventListener('input', function(){
+      if (sqlInput.value.indexOf('\r') !== -1){
+        var s = sqlInput.selectionStart, e = sqlInput.selectionEnd;
+        sqlInput.value = sqlInput.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        sqlInput.selectionStart = s; sqlInput.selectionEnd = e;
+      }
       updateLineNums();
       scheduleValidation();
       schedulePreviewAndSave();
+    });
+    sqlInput.addEventListener('paste', function(){
+      setTimeout(function(){
+        if (sqlInput.value.indexOf('\r') === -1) return;
+        var s = sqlInput.selectionStart, e = sqlInput.selectionEnd;
+        sqlInput.value = sqlInput.value.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+        sqlInput.selectionStart = s; sqlInput.selectionEnd = e;
+        updateLineNums();
+        scheduleValidation();
+        syncEditorScroll();
+      }, 0);
     });
     sqlInput.addEventListener('scroll', syncEditorScroll);
     sqlInput.addEventListener('keydown', function(e){
@@ -1359,6 +1450,7 @@
     });
 
     document.getElementById('btnCheck').onclick = checkCode;
+    document.getElementById('btnForcePass').onclick = forcePassTask;
     btnNextTask.onclick = goToNextTask;
     document.getElementById('btnClear').onclick = function(){
       sqlInput.value = '';
@@ -1413,12 +1505,16 @@
       var name = getStudentName();
       document.getElementById('bugReportContent').innerHTML =
         '<p class="bug-report-greeting">Привет, ' + esc(name) + '!</p>' +
-        '<p class="bug-report-text">Если возникли вопросы или сложности с тренажером напиши нам</p>' +
+        '<p class="bug-report-text">Если возникли вопросы или сложности с тренажером, напиши нам.</p>' +
         '<div class="bug-report-email-row">' +
-          '<a class="bug-report-email" href="mailto:' + BUG_EMAIL + '">' + BUG_EMAIL + '</a>' +
-          '<button type="button" class="btn-copy-email" id="btnCopyBugEmail">Копировать</button>' +
-        '</div>';
+          '<span class="bug-report-email" id="bugReportEmail">' + BUG_EMAIL + '</span>' +
+          '<button type="button" class="btn-copy-email" id="btnCopyBugEmail">Копировать адрес</button>' +
+        '</div>' +
+        '<p class="bug-report-text" style="margin-top:12px;font-size:.82rem">Почта в браузере может не открыться — скопируйте адрес и напишите с рабочей почты.</p>' +
+        '<button type="button" class="btn-congrats-secondary" id="btnBugReportOk" style="margin-top:8px">Закрыть</button>';
       document.getElementById('btnCopyBugEmail').onclick = function(){ copyBugEmail(this); };
+      document.getElementById('bugReportEmail').onclick = function(){ copyBugEmail(document.getElementById('btnCopyBugEmail')); };
+      document.getElementById('btnBugReportOk').onclick = closeBugReport;
       document.getElementById('modalBugReport').classList.add('visible');
     }
 
